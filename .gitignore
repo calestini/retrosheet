@@ -1,0 +1,11 @@
+*.py[cod]
+*.ipynb
+/*.ipynb
+.ipynb
+/main/*.ipynb
+*.csv
+*.zip
+*.EVA
+*.EVN
+*.ROS
+.EVA
