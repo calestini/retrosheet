@@ -1,0 +1,9 @@
+[run]
+branch = True
+
+[report]
+# Regexes for lines to exclude from consideration
+
+include =
+  retrosheet/__init__.py
+  retrosheet/[A-z]*.py

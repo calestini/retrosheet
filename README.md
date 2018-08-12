@@ -1,5 +1,8 @@
 # retrosheet
 
+[![codecov](https://codecov.io/gh/calestini/retrosheet/branch/master/graph/badge.svg)](https://codecov.io/gh/calestini/retrosheet)
+
+
 A project to parse [retrosheet](https://www.retrosheet.org) baseball data in python
 
  - Documentation on the play datasets can be found [here](https://www.retrosheet.org/datause.txt)
