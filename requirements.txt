@@ -3,4 +3,4 @@ io==16.2
 zipfile==13.5
 urllib==22.5
 sys==30.1
-logging=0.5.1.2
+logging==0.5.1.2
