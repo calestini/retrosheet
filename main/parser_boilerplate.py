@@ -5,7 +5,6 @@ from zipfile import ZipFile
 from urllib.request import urlopen
 import sys
 
-
 def progress(count, total, status=''):
     """
     Adapted from https://gist.github.com/vladignatyev/06860ec2040cb497f0f3
