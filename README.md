@@ -38,6 +38,12 @@ python main.py
 >>> [========------------------] 33.5% ... 1959
 ```
 
+---
+
+## Useful Notes
+
+  - For the events file, the pitches field sometimes repeats over the following role, whenever there was a play (CS, SB, etc.). In these cases, the code needs to remove the duplication.
+
 ## Missing Parsing
 
   - Plays
