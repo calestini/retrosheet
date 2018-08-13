@@ -5,7 +5,9 @@
 
 A project to parse [retrosheet](https://www.retrosheet.org) baseball data in python
 
- - Documentation on the play datasets can be found [here](https://www.retrosheet.org/datause.txt)
+ - Documentation on the datasets can be found [here](https://www.retrosheet.org/datause.txt)
+
+ - Information about the event files can be found [here](https://www.retrosheet.org/eventfile.htm)
 
  - Link to downloads [here](https://www.retrosheet.org/game.htm)
 
@@ -40,5 +42,7 @@ python main.py
 
   - Plays
   - Info variable names
+  - Playoff files
+  - Additional files
   - Pich counts
   - Datetime for each game
