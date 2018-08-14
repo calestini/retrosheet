@@ -62,6 +62,7 @@ class Parser(object):
         comments = []
         rosters = []
         teams = []
+        pitch_by_pitch = []
 
         for file in zipfile.namelist():
 
@@ -79,7 +80,7 @@ class Parser(object):
 
                     teams.append([year]+team_piece)
 
-            if file[-3:] == 'ROS': #roster file
+            elif file[-3:] == 'ROS': #roster file
                 team_abbr = file[:3]
 
                 for row in zipfile.open(file, 'r').readlines():
@@ -97,81 +98,107 @@ class Parser(object):
 
                     rosters.append([year, team_abbr]+roster_piece)
 
-            #print (file)
-            order = 0
-            game_id = 0
-            version = 0
-            for row in zipfile.open(file, 'r').readlines():
+            else: #event file
+                #print (file)
+                order = 0
+                game_id = 0
+                version = 0
+                for loop, row in enumerate(zipfile.open(file, 'r').readlines()):
 
-                row = row.decode("utf-8")
-                #rows.append(row.rstrip('\n'))
-                row_type = row.rstrip('\n').split(',')[0]
-                #print (row_type)
+                    row = row.decode("utf-8")
+                    #rows.append(row.rstrip('\n'))
+                    row_type = row.rstrip('\n').split(',')[0]
+                    #print (row_type)
 
-                if row_type == 'id':
-                    order = 0
-                    game_id = row.rstrip('\n').split(',')[1].strip('\r')
-                    #ids.append(game_id)
+                    if row_type == 'id':
+                        order = 0
+                        game_id = row.rstrip('\n').split(',')[1].strip('\r')
+                        print ('\nGame:\t{0}'.format(game_id))
+                        #ids.append(game_id)
 
-                if row_type == 'version':
+                    if row_type == 'version':
 
-                    version = row.rstrip('\n').split(',')[1].strip('\r')
-                    #versions.append(version)
+                        version = row.rstrip('\n').split(',')[1].strip('\r')
+                        #versions.append(version)
 
-                if row_type == 'info':
-                    if row.rstrip('\n').split(',')[1] != 'save':
+                    if row_type == 'info':
+                        #if row.rstrip('\n').split(',')[1] != 'save':
                         info_piece = [
                             row.rstrip('\n').split(',')[1],
                             row.rstrip('\n').split(',')[2].strip('\r').strip('"').strip('"')
                         ]
                         infos.append([game_id]+ info_piece)
 
-                if row_type == 'start':
-                    start_piece = [
-                        row.rstrip('\n').split(',')[1],
-                        row.rstrip('\n').split(',')[2].strip('"'),
-                        row.rstrip('\n').split(',')[3],
-                        row.rstrip('\n').split(',')[4],
-                        row.rstrip('\n').split(',')[5].strip('\r')
-                    ]
-                    starting.append([game_id, version]+start_piece)
+                    if row_type == 'start':
 
-                if row_type == 'play':
-                    play_piece = [
-                        row.rstrip('\n').split(',')[1],
-                        row.rstrip('\n').split(',')[2],
-                        row.rstrip('\n').split(',')[3],
-                        row.rstrip('\n').split(',')[4],
-                        row.rstrip('\n').split(',')[5],
-                        row.rstrip('\n').split(',')[6].strip('\r')
-                    ]
-                    plays.append([order, game_id, version] + play_piece)
-                    order += 1
+                        #first take pitcher id
+                        if row.rstrip('\n').split(',')[5].strip('\r') == '1':
+                            if row.rstrip('\n').split(',')[3] == '1':
+                                home_pitcher_id = row.rstrip('\n').split(',')[1]
+                                print ('home pitcher: ', home_pitcher_id)
+                            else: #away pitcher
+                                away_pitcher_id = row.rstrip('\n').split(',')[1]
+                                print ('away pitcher: ', away_pitcher_id)
 
-                if row_type == 'sub':
-                    sub_piece = [
-                        row.rstrip('\n').split(',')[1],
-                        row.rstrip('\n').split(',')[2].strip('"'),
-                        row.rstrip('\n').split(',')[3],
-                        row.rstrip('\n').split(',')[4],
-                        row.rstrip('\n').split(',')[5].strip('\r')
-                    ]
-                    subs.append([order, game_id, version] + sub_piece)
-                    order += 1
+                        start_piece = [
+                            row.rstrip('\n').split(',')[1],
+                            row.rstrip('\n').split(',')[2].strip('"'),
+                            row.rstrip('\n').split(',')[3],
+                            row.rstrip('\n').split(',')[4],
+                            row.rstrip('\n').split(',')[5].strip('\r')
+                        ]
+                        starting.append([game_id, version]+start_piece)
 
-                if row_type == 'com': #comments
-                    com_piece = [
-                        row.rstrip('\n').split('"')[1]
-                    ]
-                    comments.append([order, game_id, version] + com_piece)
+                    if row_type == 'play':
+                        if row.rstrip('\n').split(',')[2] == '0': #home
+                            pitcher_id = home_pitcher_id
+                        else: #away
+                            pitcher_id = away_pitcher_id
 
-                if row_type == 'data':
-                    data_piece = [
-                        row.rstrip('\n').split(',')[1],
-                        row.rstrip('\n').split(',')[2],
-                        row.rstrip('\n').split(',')[3].strip('\r')
-                    ]
-                    er.append([game_id, version] + data_piece)
+                        play_piece = [
+                            row.rstrip('\n').split(',')[1],
+                            row.rstrip('\n').split(',')[2],
+                            pitcher_id,
+                            row.rstrip('\n').split(',')[3],
+                            row.rstrip('\n').split(',')[4],
+                            row.rstrip('\n').split(',')[5],
+                            row.rstrip('\n').split(',')[6].strip('\r')
+                        ]
+                        plays.append([order, game_id, version] + play_piece)
+                        order += 1
+
+                    if row_type == 'sub':
+                        if row.rstrip('\n').split(',')[5].strip('\r') == '1':
+                            if row.rstrip('\n').split(',')[3] == '1':
+                                home_pitcher_id = row.rstrip('\n').split(',')[1]
+                                print ('sub: home pitcher: ', home_pitcher_id)
+                            else: #away pitcher
+                                away_pitcher_id = row.rstrip('\n').split(',')[1]
+                                print ('sub: away pitcher: ', away_pitcher_id)
+
+                        sub_piece = [
+                            row.rstrip('\n').split(',')[1],
+                            row.rstrip('\n').split(',')[2].strip('"'),
+                            row.rstrip('\n').split(',')[3],
+                            row.rstrip('\n').split(',')[4],
+                            row.rstrip('\n').split(',')[5].strip('\r')
+                        ]
+                        subs.append([order, game_id, version] + sub_piece)
+                        order += 1
+
+                    if row_type == 'com': #comments
+                        com_piece = [
+                            row.rstrip('\n').split('"')[1]
+                        ]
+                        comments.append([order, game_id, version] + com_piece)
+
+                    if row_type == 'data':
+                        data_piece = [
+                            row.rstrip('\n').split(',')[1],
+                            row.rstrip('\n').split(',')[2],
+                            row.rstrip('\n').split(',')[3].strip('\r')
+                        ]
+                        er.append([game_id, version] + data_piece)
 
         #dataframe for ids and versions. Information purposes only
         #ids_df = pd.DataFrame(ids, columns = ['game_id'])
@@ -194,7 +221,7 @@ class Parser(object):
         subs_df = pd.DataFrame(subs, columns = ['order','game_id','version', 'player_id','player_name','home_team','batting_position','position'])
 
         #play-by-play dataframe. Plays are not parsed yet.
-        plays_df = pd.DataFrame(plays, columns = ['order','game_id','version','inning','home_team','player_id','count_on_batter','pitches','play'])
+        plays_df = pd.DataFrame(plays, columns = ['order','game_id','version','inning','home_team','pitcher_id','batter_id','count_on_batter','pitches','play'])
 
         #comments are not parsed.
         comments_df = pd.DataFrame(comments, columns = ['order','game_id','version','comment'])
