@@ -1,6 +1,3 @@
 pandas
-zipfile
-urllib
-logging
-re
 codecov
+urllib3
