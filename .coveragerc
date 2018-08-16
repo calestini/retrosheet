@@ -1,6 +1,8 @@
 [run]
 branch = True
 
+source = retrosheet
+
 [report]
 # Regexes for lines to exclude from consideration
 
