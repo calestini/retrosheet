@@ -128,7 +128,7 @@ Runs: 3	Outs: 3
 ---
 ## Useful Notes
 
-  - Our own summary of Retrosheet terminology can be found [here](retrhoseet/info.md)
+  - Our own summary of Retrosheet terminology can be found [here](retrosheet/info.txt)
   - For the events file, the pitches field sometimes repeats over the following role, whenever there was a play (CS, SB, etc.). In these cases, the code needs to remove the duplication.
 
 ## Notation questions
