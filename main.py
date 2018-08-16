@@ -2,7 +2,7 @@ from retrosheet import Parser, Event
 
 if __name__ == '__main__':
     parser = Parser()
-    info, starting, plays, er, subs, comments, rosters, teams = parser.parse_years(yearFrom=2017, yearTo=2017, save_to_csv=True)
+    info, starting, plays, er, subs, comments, rosters, teams = parser.parse_years(yearFrom=1921, yearTo=2017, save_to_csv=True)
 
     event_sequence = [
     'S9','S7.1-2','34/SH.2-3;1-2','S9.3-H;2-3','W.1-2''S8.3-H;2-H;1X3(8254)','4'
