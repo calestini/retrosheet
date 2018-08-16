@@ -1,0 +1,117 @@
+
+"""
+Below is a summary of play notations
+"""
+
+# Distinct markers:
+### '!' Exceptional play
+### '?' uncertainty about the play
+### '#' uncertainty about the play
+### '+' modifying a trajectory (it is also a separator)
+### '-' modifying a trajectory
+
+# Separators:
+### '/' for modifier of main play
+### '.' for advances
+### ';' for splitting plays or advances.
+### '+' for seconday plays in the same event
+
+# Attacking players / positions:
+### 'B' = batter
+### '1 /2 /3' = base runner
+### 'H' = home
+
+# Defensive positions:
+### same naming as position_dic (1 for pitcher, 2 for catcher, etc.)
+
+# Ball trajectories:
+### G for ground ball
+### L for line drive
+### P for pop up
+### F for a fly ball
+### BG for bunt grounder
+### BP for bunt pop up
+
+# Play codes involving batter:
+### GDP Grounded into Double Play (.e.g 64(1)3/GDP/G6)
+### G ground ball
+### FO fource out
+### SH sacrifice hit or bunt
+### 99 unkown plays
+### SF sacrifice fly
+### C/E2 catcher interference (implicit B-1)
+### C/E1 or C/E3 intereference by pitcher or first baseman (batter not charged with at bat)
+### S$ single
+### D$ double
+### T$ triple
+### S / D / T single, double, triple play (implicit B-1, B-2, B-3)
+### DGR ground rule double (when the ball leaves play after fair hit. Two bases awarded to every player)
+### E$ error allowing batter ot get on base. B-1 can be implicit. $ indicateds position (1 for pitcher, 2 for cather, etc)
+### FC$ Fielder's choice (offensive player reaching a base due to the defense's attempt to put out another baserunner). B-1 might be implicit
+### FLE$ Error on foul fly ball
+### H or HR home run leaving the ball park (e.g. HR/F78XD.2-H;1-H)
+### H$ or HR$ indicates an inside-the-park home run by giving a fielder as part of the code (e.g. HR9/F9LS.3-H;1-H)
+### HP batter hit by pitch. B-1 implicit
+### K strike-out
+### K+event On third strikes various base running play may also occur. The event can be SB%, CS%, OA, PO%, PB, WP and E$
+### NP no play, substitutions happening
+### I or IW intentional walk
+### W walk. B-1 implicit
+### W+event, IW+event On ball four various base running plays may also occur. The event can be SB%, CS%, PO%, PB, WP and E$
+
+# Play codes not involving batter
+### BK balk (pitcher illegal move). Other advances might occur but batter remains on plate
+### CS%($$) caught stealing (e.g. 'CSH(12)','CS2(24).2-3'). An error might null the caught stealing (e.g. 'CS2(24).2-3')
+### DI defensive indifference. When there is no attemp to prevent a stolen base. Advances explicit
+### OA baserunner advance not covered by other codes.
+### PB passed ball - catcher is unable to handle a pitch and a base runner advances
+### WP wil pitch - catcher is unable to handle a pitch and a base runner advances
+### PO%($$) - picked off of base % (1,2, or 3) with the ($$) indicating the throw(s) and fielder making the putout (e.g. 'PO2(14)', 'PO1(E3).1-2')
+### POCS%($$) picked off off base % (2, 3 or H) with the runner charged with a caught stealing. The ($$) is the sequence of throws resulting in the out
+### SB% stolen base. Bases for % can be 2,3, or H
+
+# Modifiers (preceded by '/')
+### AP    appeal play
+### BP    pop up bunt
+### BG    ground ball bunt
+### BGDP  bunt grounded into double play
+### BINT  batter interference
+### BL    line drive bunt
+### BOOT  batting out of turn
+### BP    bunt pop up
+### BPDP  bunt popped into double play
+### BR    runner hit by batted ball
+### C     called third strike
+### COUB  courtesy batter
+### COUF  courtesy fielder
+### COUR  courtesy runner
+### DP    unspecified double play
+### E$    error on $
+### F     fly
+### FDP   fly ball double play
+### FINT  fan interference
+### FL    foul
+### FO    force out
+### G     ground ball
+### GDP   ground ball double play
+### GTP   ground ball triple play
+### IF    infield fly rule
+### INT   interference
+### IPHR  inside the park home run
+### L     line drive
+### LDP   lined into double play
+### LTP   lined into triple play
+### MREV  manager challenge of call on the field
+### NDP   no double play credited for this play
+### OBS   obstruction (fielder obstructing a runner)
+### P     pop fly
+### PASS  a runner passed another runner and was called out
+### R$    relay throw from the initial fielder to $ with no out made
+### RINT  runner interference
+### SF    sacrifice fly
+### SH    sacrifice hit (bunt)
+### TH    throw
+### TH%   throw to base %
+### TP    unspecified triple play
+### UINT  umpire interference
+### UREV  umpire review of call on the field

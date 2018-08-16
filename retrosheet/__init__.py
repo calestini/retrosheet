@@ -2,7 +2,10 @@ import os
 import json
 import logging.config
 
+
+from .event import Event
 from .parser import Parser
+
 
 def setup_logging(default_path='logging.json', default_level=logging.INFO, env_key='LOG_CFG'):
 
@@ -25,5 +28,6 @@ def setup_logging(default_path='logging.json', default_level=logging.INFO, env_k
 
     else:
         logging.basicConfig(level=default_level)
+
 
 setup_logging()

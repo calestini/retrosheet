@@ -17,7 +17,6 @@ class Parser(object):
         self.endpoint = 'https://www.retrosheet.org/events/'
         self.extension = '.zip'
 
-
     def _progress(self, count, total, status=''):
         """
         Adapted from https://gist.github.com/vladignatyev/06860ec2040cb497f0f3
@@ -31,6 +30,45 @@ class Parser(object):
         sys.stdout.write('[{0}] {1}{2} ... {3}\r'.format(bar, percents, '%', status))
         sys.stdout.flush()
 
+    def _position_name(self, position_number):
+        """
+        """
+        position_dic = {
+            '1':'P',    #pitcher
+            '2':'C',    #catcher
+            '3':'1B',   #first baseman
+            '4':'2B',   #second baseman
+            '5':'3B',   #thrid baseman
+            '6':'SS',   #shortstop
+            '7':'LF',   #left fielder
+            '8':'CF',   #center fielder
+            '9':'RF',   #right fielder
+            '10':'DH',  #designated hitter
+            '11':'PH',  #pinch hitter
+            '12':'PR',  #pinch runner
+            }
+        return position_dic[position_number]
+
+    def _pitch_count(self, string, current_count):
+        """
+        For now it is including pickoffs
+        """
+        #simplest idea:
+        clean_pitches = string.replace('>','').replace('+','').replace('*','').replace('??','')
+        splits = clean_pitches.split('.') #results in a list
+        count = current_count + len(splits[len(splits)-1])
+
+        return count
+
+    def _play_decipher(self, string):
+        """understand each play from notation
+        """
+        R = 0#runs
+        A = 0#assists - credited to every defensive player who fields or touches the ball
+        O = 0#outs
+        E = 0#error
+
+        pass
 
     def parse_file(self, year):
         ########################################################################
@@ -62,7 +100,6 @@ class Parser(object):
         comments = []
         rosters = []
         teams = []
-        pitch_by_pitch = []
 
         for file in zipfile.namelist():
 
@@ -113,7 +150,7 @@ class Parser(object):
                     if row_type == 'id':
                         order = 0
                         game_id = row.rstrip('\n').split(',')[1].strip('\r')
-                        print ('\nGame:\t{0}'.format(game_id))
+                        #print ('\nGame:\t{0}'.format(game_id))
                         #ids.append(game_id)
 
                     if row_type == 'version':
@@ -130,15 +167,17 @@ class Parser(object):
                         infos.append([game_id]+ info_piece)
 
                     if row_type == 'start':
-
+                        #it marks the starting players for a game
                         #first take pitcher id
                         if row.rstrip('\n').split(',')[5].strip('\r') == '1':
                             if row.rstrip('\n').split(',')[3] == '1':
                                 home_pitcher_id = row.rstrip('\n').split(',')[1]
-                                print ('home pitcher: ', home_pitcher_id)
+                                home_pitch_count = 0
+                                #print ('home pitcher: ', home_pitcher_id)
                             else: #away pitcher
                                 away_pitcher_id = row.rstrip('\n').split(',')[1]
-                                print ('away pitcher: ', away_pitcher_id)
+                                away_pitch_count = 0
+                                #print ('away pitcher: ', away_pitcher_id)
 
                         start_piece = [
                             row.rstrip('\n').split(',')[1],
@@ -150,32 +189,41 @@ class Parser(object):
                         starting.append([game_id, version]+start_piece)
 
                     if row_type == 'play':
-                        if row.rstrip('\n').split(',')[2] == '0': #home
+                        if row.rstrip('\n').split(',')[2] == '0': #the opposite team is pitching
                             pitcher_id = home_pitcher_id
+                            #calculate new home pitch count
+                            home_pitch_count = self._pitch_count(row.rstrip('\n').split(',')[5], home_pitch_count)
+                            pitch_count = home_pitch_count
                         else: #away
                             pitcher_id = away_pitcher_id
+                            #calculate new away pitch count
+                            away_pitch_count = self._pitch_count(row.rstrip('\n').split(',')[5], away_pitch_count)
+                            pitch_count = away_pitch_count
 
                         play_piece = [
                             row.rstrip('\n').split(',')[1],
                             row.rstrip('\n').split(',')[2],
                             pitcher_id,
+                            pitch_count,
                             row.rstrip('\n').split(',')[3],
                             row.rstrip('\n').split(',')[4],
                             row.rstrip('\n').split(',')[5],
                             row.rstrip('\n').split(',')[6].strip('\r')
                         ]
                         plays.append([order, game_id, version] + play_piece)
+
                         order += 1
 
                     if row_type == 'sub':
                         if row.rstrip('\n').split(',')[5].strip('\r') == '1':
                             if row.rstrip('\n').split(',')[3] == '1':
                                 home_pitcher_id = row.rstrip('\n').split(',')[1]
-                                print ('sub: home pitcher: ', home_pitcher_id)
+                                #print ('sub: home pitcher: ', home_pitcher_id)
+                                home_pitch_count = 0
                             else: #away pitcher
                                 away_pitcher_id = row.rstrip('\n').split(',')[1]
-                                print ('sub: away pitcher: ', away_pitcher_id)
-
+                                #print ('sub: away pitcher: ', away_pitcher_id)
+                                away_pitch_count = 0
                         sub_piece = [
                             row.rstrip('\n').split(',')[1],
                             row.rstrip('\n').split(',')[2].strip('"'),
@@ -221,7 +269,7 @@ class Parser(object):
         subs_df = pd.DataFrame(subs, columns = ['order','game_id','version', 'player_id','player_name','home_team','batting_position','position'])
 
         #play-by-play dataframe. Plays are not parsed yet.
-        plays_df = pd.DataFrame(plays, columns = ['order','game_id','version','inning','home_team','pitcher_id','batter_id','count_on_batter','pitches','play'])
+        plays_df = pd.DataFrame(plays, columns = ['order','game_id','version','inning','home_team','pitcher_id','pitch_count','batter_id','count_on_batter','pitches','play'])
 
         #comments are not parsed.
         comments_df = pd.DataFrame(comments, columns = ['order','game_id','version','comment'])
