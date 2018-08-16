@@ -1,7 +1,6 @@
 pandas
-io
 zipfile
 urllib
-sys
 logging
 re
+codecov
