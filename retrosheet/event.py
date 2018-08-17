@@ -13,7 +13,7 @@ class Event(object):
     Clean code, make it less redundant, potentially in a module only.
     """
 
-    def __init__(self, event_string, play):
+    def __init__(self, event_string='NP', play={'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0, 'run': 0}):
         self.log = logging.getLogger(__name__)
         self.str = event_string
         self.play = play
@@ -48,20 +48,21 @@ class Event(object):
         #this_play = {'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0, 'run': 0}
         self.play['B'] = 1
 
-        advances = self.str.split('.')[len(self.str.split('.'))-1] if len(self.str.split('.'))>1 else []
+        self.advances = self.str.split('.')[len(self.str.split('.'))-1] if len(self.str.split('.'))>1 else ''
+
         if re.search('\.', self.str): #there was an advance:
             #test using regular expressions
             #Step2: Understanding advances / outs in advances
-            out_in_advance = re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*', advances)
+            out_in_advance = re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*', self.advances)
 
             #two type of PLAYER ERRORS on advances:
             #a) notation is out ($X$) but error negates the out. 'X' becomes '-'
-            error_out = re.findall('[1-3B]X[1-3H](?:\([^\)]*E[^\)]+\))', advances) #error a
+            error_out = re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*(?:\([^\)]*E[^\)]+\))(?:\([^\)]+\))?', self.advances) #error a
 
             #b) notation is advance ($-$) and parenthesis explain the error that generated the advance
             ## no action needed. Error is an explanation of play, like all others
 
-            advanced = re.findall('[1-3B]\-[1-3H](?:\([^\)]+\))*', advances)
+            advanced = re.findall('[1-3B]\-[1-3H](?:\([^\)]+\))*', self.advances)
 
             #element 0 is where they come from
             #element 2 is where they are/were headed
@@ -70,7 +71,16 @@ class Event(object):
                 self.play['out'] += 1
 
             for error in error_out:
-                self.play[error[2]] = 1
+                if not re.findall('(?:\([1-9U)]+\))+', error): # 'BX3(36)(E5/TH)' is not really an error.
+                    self.play['out'] -= 1
+                    if error[2] == 'H':
+                        self.play[error[0]] = 0 #decrease from where they left
+                        self.play[error[2]] += 1 #increase where they touched
+                        self.play['run'] += 1
+                    else:
+                        self.play[error[0]] = 0 #decrease from where they left
+                        self.play[error[2]] = 1 #incresae where they touched
+
 
             for advance in advanced:
                 if advance[2] == 'H':
@@ -133,6 +143,7 @@ class Event(object):
 
         elif re.findall('^PO[123](?:\([1-9]+\))',secondary_event):
             self.play[secondary_event[2]] = 0
+            self.play['out'] += 1
 
         #only the errors (allowing to stay)
         elif re.findall('^PO[123](?:\([1-9]*E[1-9]+)',secondary_event):
@@ -145,8 +156,10 @@ class Event(object):
             for split in secondary_event.split(';'): #there are CS events together with POCS
                 if split[0:2] == 'CS':
                     self.play[split[3]] = 0
+                    self.play['out'] += 1
                 else: #POCS
                     self.play[split[4]] = 0
+                    self.play['out'] += 1
 
         #only the errors (allowing advances)
         elif re.findall('^POCS[23H](?:\([1-9]*E[1-9]+)', secondary_event):
@@ -167,11 +180,11 @@ class Event(object):
     def parse_event(self):
 
         if self.str is None:
-            return False
+            pass#return False
 
         result = ''
 
-        a = self.str.split('.')[0].split('/')[0].replace('!','').replace('#','').replace('?','') #redundant
+        a = self.str.split('.')[0].split('/')[0].replace('!','').replace('#','').replace('?','')
         modifiers = self.str.split('.')[0].split('/')[1:] if len(self.str.split('.')[0].split('/'))>1 else []
 
         #play['B'] = 1
@@ -185,9 +198,9 @@ class Event(object):
                 ################ MODIFIER #####################
                 if modifiers:
                     for modifier in modifiers:
-                        if re.findall('^[UGFL]?DP$',modifier): #double play
+                        if re.findall('^[UGFL]?DP',modifier): #double play
                             outs = 2
-                        elif re.findall('^[UGFL]?TP$',modifier): #tripple play
+                        elif re.findall('^[UGFL]?TP',modifier): #tripple play
                             outs = 3
                 ###############################################
                 if re.search('(?:\([B]\))',a): #at-bat explicit out
@@ -197,8 +210,9 @@ class Event(object):
                         else:
                             self._out_in_advance('1')
 
-                elif len(re.findall('(?:\([B123]\))',a)) != outs: #B should not exist, should be implicit
-                    self._out_in_advance('1')
+                elif len(re.findall('(?:\([B123]\))',a)) != outs: #B is implicit
+                    if not re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*', self.advances): #B is implicit in advances too
+                        self._out_in_advance('1')
                     for out in re.findall('(?:\([B123]\))',a):
                         self._out_in_advance(str(int(out[1])+1))
 
@@ -312,14 +326,43 @@ class Event(object):
             if other_event:
                 self._secondary_event(other_event)
 
+        #elif re.findall('^K$',a):
+        #    result = 'out'
+        #    self._out_in_advance('1')
 
         ## Strikeouts. Events can happen too: SB%, CS%, OA, PO%, PB, WP and E$
         elif re.findall('^K',a):
             result = 'out'
             self._out_in_advance('1')
+            #if its a strikeout w fourceout of an explicit out, remove the out here to avoid double-count
+            if modifiers:
+                if modifiers[0] == 'FO' and re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*', self.advances):
+                    self.play['out'] -= 1
+
+
+                if re.findall('^K$',a) and modifiers[0] == 'MREV' or modifiers == 'UREV':
+                    if re.findall('[B]\-[1-3H]', self.advances): #base runner explicit, so no strikout
+                        self.play['out'] -= 1
+
+
+            elif re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*', self.advances) and not re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*(?:\([^\)]*E[^\)]+\))(?:\([^\)]+\))?', self.advances): #Base explicit out
+                self.play['out'] -= 1
+
+            elif re.findall('^K$',a) and (re.findall('[B]\-[1-3H](?:\([^\)]+\))*', self.advances) or re.findall('[B]X[1-3H](?:\([^\)]+\))*(?:\([^\)]*E[^\)]+\))(?:\([^\)]+\))?', self.advances)): #strike but base runner advanced
+                self.play['out'] -= 1
 
             other_event = a.split('+')[1] if len(a.split('+'))>1 else []
             if other_event:
+                # if its a wild pitch and base runner moves explicitly, decrease the out as its no longer a strike:
+                if re.findall('[B]\-[1-3H](?:\([^\)]+\))*', self.advances): #Base advanced
+                    self.play['out'] -= 1
+                    base_advanced = re.findall('[B]\-[1-3H](?:\([^\)]+\))*', self.advances)[0][2]
+                    self.play[base_advanced] = 1
+
+                #elif re.findall('[B]X[1-3H](?:\([^\)]+\))*', self.advances): #Base advanced
+                #    self.play['out'] -= 1
+
+
                 self._secondary_event(other_event)
 
         #No Play == substitution
@@ -345,6 +388,7 @@ class Event(object):
         elif re.findall('^PO[123](?:\([1-9]+\))',a):
             result = 'out'
             self.play[a[2]] = 0
+            self.play['out'] += 1
 
         #only the errors (allowing to stay)
         elif re.findall('^PO[123](?:\([1-9]*E[1-9]+)',a):
@@ -359,8 +403,10 @@ class Event(object):
             for split in a.split(';'): #there are CS events together with POCS
                 if split[0:2] == 'CS':
                     self.play[split[3]] = 0
+                    self.play['out'] += 1
                 else: #POCS
                     self.play[split[4]] = 0
+                    self.play['out'] += 1
 
         #only the errors (allowing advances)
         elif re.findall('^POCS[23H](?:\([1-9]*E[1-9]+)',a):
@@ -397,8 +443,15 @@ class Event(object):
                 self.play['1'] = 1
                 self.play['B'] = 0
 
+        elif re.findall('^C$', a):
+            #What is "C" - strikeout ??
+            pass
+            #result = 'single'
+            #self.play['out'] += 1
+            #self.play['B'] = 0
+
         else:
-            raise EventNotFoundError('Event Not Known')
+            raise EventNotFoundError('Event Not Known', a)
 
         #self._print_diamond()
         #print (result)
@@ -413,7 +466,7 @@ class Event(object):
 class EventNotFoundError(Exception):
     """ Exception that is raised when an event is not recognized
     """
-    def __init__(self,error):
+    def __init__(self, error, event):
         #self.log = logging.getLogger(__name__)
         #self.log.debug("Event not found")
-        super(EventNotFoundError, self).__init__("Event not found")
+        super(EventNotFoundError, self).__init__(event)

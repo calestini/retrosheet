@@ -6,7 +6,7 @@ from zipfile import ZipFile
 from urllib.request import urlopen
 import sys
 import logging
-
+from .event import Event
 
 class Parser(object):
 
@@ -16,6 +16,7 @@ class Parser(object):
         self.log = logging.getLogger(__name__)
         self.endpoint = 'https://www.retrosheet.org/events/'
         self.extension = '.zip'
+        self.errors = []
 
     def _progress(self, count, total, status=''):
         """
@@ -29,6 +30,8 @@ class Parser(object):
 
         sys.stdout.write('[{0}] {1}{2} ... {3}\r'.format(bar, percents, '%', status))
         sys.stdout.flush()
+        if count  == total:
+            print ('')
 
     def _position_name(self, position_number):
         """
@@ -81,16 +84,17 @@ class Parser(object):
         - Else, it will take from the web (without making a copy)
         """
 
+        event = Event(play = {'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 3, 'run': 0})
         filename = '{0}eve{1}'.format(year, self.extension)
 
         try: #the files locally:
             zipfile = ZipFile(filename)
-            self.log.debug("Found locally")
+            #self.log.debug("Found locally")
         except: #take from the web
             resp = urlopen(self.endpoint + filename)
             #print (year)
             zipfile = ZipFile(BytesIO(resp.read()))
-            self.log.debug("Donwloading from the web")
+            #self.log.debug("Donwloading from the web")
 
         infos = []
         starting = []
@@ -140,6 +144,10 @@ class Parser(object):
                 order = 0
                 game_id = 0
                 version = 0
+                inning = '1'
+                team = '0'
+                play_sequence = []
+
                 for loop, row in enumerate(zipfile.open(file, 'r').readlines()):
 
                     row = row.decode("utf-8")
@@ -150,6 +158,7 @@ class Parser(object):
                     if row_type == 'id':
                         order = 0
                         game_id = row.rstrip('\n').split(',')[1].strip('\r')
+                        event.play = {'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 3, 'run': 0}
                         #print ('\nGame:\t{0}'.format(game_id))
                         #ids.append(game_id)
 
@@ -189,6 +198,23 @@ class Parser(object):
                         starting.append([game_id, version]+start_piece)
 
                     if row_type == 'play':
+
+                        if team != row.rstrip('\n').split(',')[2]:
+                            if not row.rstrip('\n').split(',')[2] == '0' and not row.rstrip('\n').split(',')[1] == '1':
+                                #assert (event.play['out'] == 3),"Game: {3} Inning {0} team {4} ended with {1} outs [{2}]".format(inning,event.play['out'], event.str, game_id, team)
+                                if event.play['out'] != 3:
+                                    self.errors.append("Game: {3} Inning {0} team {4} ended with {1} outs [{2}]".format(inning,event.play['out'], event.str, game_id, team))
+                                    event.play['out'] = 0
+                            #play_sequence = [] #restart at every inning
+
+                        event.str = row.rstrip('\n').split(',')[6].strip('\r')
+                        event.decipher()
+                        #play_dict = event.play
+                        play_sequence.append([event.str, event.play])
+
+                        inning = row.rstrip('\n').split(',')[1]
+                        team = row.rstrip('\n').split(',')[2]
+
                         if row.rstrip('\n').split(',')[2] == '0': #the opposite team is pitching
                             pitcher_id = home_pitcher_id
                             #calculate new home pitch count
@@ -201,10 +227,7 @@ class Parser(object):
                             pitch_count = away_pitch_count
 
                         play_piece = [
-                            row.rstrip('\n').split(',')[1],
-                            row.rstrip('\n').split(',')[2],
-                            pitcher_id,
-                            pitch_count,
+                            inning, team, pitcher_id, pitch_count,
                             row.rstrip('\n').split(',')[3],
                             row.rstrip('\n').split(',')[4],
                             row.rstrip('\n').split(',')[5],
@@ -277,6 +300,8 @@ class Parser(object):
         #earned runs for each pitcher.
         er_df = pd.DataFrame(er, columns = ['game_id','version','earned_run','player_id','variable'])
 
+        self.log.warning(len(self.errors))
+
         return games ,starting_df , plays_df, er_df, subs_df, comments_df, rosters_df, teams_df#, ids_df, versions_df
 
 
@@ -309,6 +334,8 @@ class Parser(object):
             teams = teams.append(teams_temp)
 
         self._progress(100,100, status="Files Downloaded")
+        self.log.warning(self.errors)
+        self.log.warning('Total errors: {0}'.format(len(self.errors)))
 
         if save_to_csv:
             self.log.warning('Saving files to csv ...')
