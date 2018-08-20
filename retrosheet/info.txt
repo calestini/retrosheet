@@ -15,6 +15,7 @@ Below is a summary of play notations
 ### '.' for advances
 ### ';' for splitting plays or advances.
 ### '+' for seconday plays in the same event
+### (): for explanation of/on advances
 
 # Attacking players / positions:
 ### 'B' = batter

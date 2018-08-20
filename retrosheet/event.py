@@ -71,7 +71,7 @@ class Event(object):
                 self.play['out'] += 1
 
             for error in error_out:
-                if not re.findall('(?:\([1-9U)]+\))+', error): # 'BX3(36)(E5/TH)' is not really an error.
+                if not re.findall('(?:\([1-9U/TH]+\))+', error) or re.findall('^[1-3B]X[1-3H](?:\(TH\))', error): # 'BX3(36)(E5/TH)' and 'BXH(TH)(E2/TH)(8E2)(NR)(UR)' are not errors.
                     self.play['out'] -= 1
                     if error[2] == 'H':
                         self.play[error[0]] = 0 #decrease from where they left
@@ -198,9 +198,9 @@ class Event(object):
                 ################ MODIFIER #####################
                 if modifiers:
                     for modifier in modifiers:
-                        if re.findall('^[UGFL]?DP',modifier): #double play
+                        if re.findall('^[B]?[PUGFL]?DP',modifier): #double play
                             outs = 2
-                        elif re.findall('^[UGFL]?TP',modifier): #tripple play
+                        elif re.findall('^[B]?[PUGFL]?TP',modifier): #tripple play
                             outs = 3
                 ###############################################
                 if re.search('(?:\([B]\))',a): #at-bat explicit out
@@ -211,8 +211,17 @@ class Event(object):
                             self._out_in_advance('1')
 
                 elif len(re.findall('(?:\([B123]\))',a)) != outs: #B is implicit
-                    if not re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*', self.advances): #B is implicit in advances too
+                    # new addition - ad hoc
+                    if len(re.findall('(?:\([B123]\))',a)) == 1 and outs == 3 and not re.findall('[B]X[1-3H](?:\([^\)]+\))*', self.advances) :
+                        self.play['out'] += 1
+                    ###
+
+                    if not re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*', self.advances): #out is implicit in advances too
                         self._out_in_advance('1')
+
+                    elif len(re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*', self.advances)) == len(re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*(?:\([^\)]*E[^\)]+\))(?:\([^\)]+\))?', self.advances)):
+                        self._out_in_advance('1')
+
                     for out in re.findall('(?:\([B123]\))',a):
                         self._out_in_advance(str(int(out[1])+1))
 
@@ -227,7 +236,11 @@ class Event(object):
         #out + error: #out is negated
         elif re.findall('^[1-9][1-9]*E[1-9]*$',a):
             result = 'out error'
-            pass #wait for explicit change or B-1
+            if not re.findall('[B]\-[1-3H](?:\([^\)]+\))*', self.advances) or not re.findall('[B]X[1-3H](?:\([^\)]+\))*(?:\([^\)]*E[^\)]+\))(?:\([^\)]+\))?', self.advances):
+                self.play['B'] = 0
+                self.play['1'] = 1
+
+            #wait for explicit change or B-1
 
 
         ##caught stealing (except errors):
@@ -329,23 +342,53 @@ class Event(object):
         #elif re.findall('^K$',a):
         #    result = 'out'
         #    self._out_in_advance('1')
+        #    if re.findall('[B]X[1-3H](?:\([1-9]+\))*', self.advances):
+        #       explicit strikeout
+        #       self.play['out'] -= 1
 
         ## Strikeouts. Events can happen too: SB%, CS%, OA, PO%, PB, WP and E$
         elif re.findall('^K',a):
             result = 'out'
             self._out_in_advance('1')
             #if its a strikeout w fourceout of an explicit out, remove the out here to avoid double-count
+            #if re.findall('[B]X[1-3H](?:\([1-9]+\))*', self.advances):
+                #explicit strikeout
+            #    self.play['out'] -= 1
+
             if modifiers:
                 if modifiers[0] == 'FO' and re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*', self.advances):
                     self.play['out'] -= 1
 
+                if modifiers[0] == 'NDP' and re.findall('[B]\-[1-3H](?:\([^\)]+\))*', self.advances) and re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*', self.advances): #no double play credited
+                    self.play['out'] -= 1
+
+                if modifiers[0] == 'TH' and re.findall('[B]X[1-3H](?:\([^\)]+\))*', self.advances):
+                    self.play['out'] -= 1
+
+
+                if modifiers[0] == 'C' and re.findall('[B]X[1-3H](?:\([^\)]+\))*', self.advances):
+                    self.play['out'] -= 1
+
+                if modifiers[0] == 'C' and re.findall('[B]\-[1-3H](?:\([^\)]+\))*(?:\([^\)]*E[^\)]+\))(?:\([^\)]+\))?', self.advances):
+                    self.play['out'] -= 1
+
+                if modifiers[0] =='DP' and re.findall('[B]X[1-3H](?:\([^\)]+\))*', self.advances) and not re.findall('[B]X[1-3H](?:\([^\)]+\))*(?:\([^\)]*E[^\)]+\))(?:\([^\)]+\))?', self.advances):
+                    self.play['out'] -= 1
+
+                if modifiers[0] =='AP' and re.findall('[B]X[1-3H](?:\([^\)]+\))*', self.advances) and not re.findall('[B]X[1-3H](?:\([^\)]+\))*(?:\([^\)]*E[^\)]+\))(?:\([^\)]+\))?', self.advances):
+                    self.play['out'] -= 1
+                    #total_out = 2
+                    #advances_out = len(re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*', self.advances)) - len(re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*(?:\([^\)]*E[^\)]+\))(?:\([^\)]+\))?', self.advances))
+                    #for out in range(total_out - advances_out):
+                    #    self.play['out'] -= 1
+
 
                 if re.findall('^K$',a) and modifiers[0] == 'MREV' or modifiers == 'UREV':
-                    if re.findall('[B]\-[1-3H]', self.advances): #base runner explicit, so no strikout
+                    if re.findall('[B]\-[1-3H]', self.advances): #base runner explicit, so no strikeout
                         self.play['out'] -= 1
 
 
-            elif re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*', self.advances) and not re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*(?:\([^\)]*E[^\)]+\))(?:\([^\)]+\))?', self.advances): #Base explicit out
+            elif re.findall('[B]X[1-3H](?:\([^\)]+\))*', self.advances) and not re.findall('[1-3B]X[1-3H](?:\([^\)]+\))*(?:\([^\)]*E[^\)]+\))(?:\([^\)]+\))?', self.advances): #Base explicit out
                 self.play['out'] -= 1
 
             elif re.findall('^K$',a) and (re.findall('[B]\-[1-3H](?:\([^\)]+\))*', self.advances) or re.findall('[B]X[1-3H](?:\([^\)]+\))*(?:\([^\)]*E[^\)]+\))(?:\([^\)]+\))?', self.advances)): #strike but base runner advanced
@@ -359,6 +402,10 @@ class Event(object):
                     base_advanced = re.findall('[B]\-[1-3H](?:\([^\)]+\))*', self.advances)[0][2]
                     self.play[base_advanced] = 1
 
+                elif re.findall('[B]X[1-3H](?:\([^\)]+\))*(?:\([^\)]*E[^\)]+\))(?:\([^\)]+\))?', self.advances):
+                    self.play['out'] -= 1
+                    base_advanced = re.findall('[B]X[1-3H](?:\([^\)]+\))*(?:\([^\)]*E[^\)]+\))(?:\([^\)]+\))?', self.advances)[0][2]
+                    self.play[base_advanced] = 1
                 #elif re.findall('[B]X[1-3H](?:\([^\)]+\))*', self.advances): #Base advanced
                 #    self.play['out'] -= 1
 
