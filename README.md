@@ -35,12 +35,13 @@ git clone https://github.com/calestini/retrosheet.git
 
 **Note: This package is a work in progress, and the files are not yet fully parsed.**
 
-The code below will load data from 1921 to 2017. Be careful as it will take some time to download it all.
+The code below will load data from 1921 to 2017. Be careful as it will take some time to download it all (~10 min).
 
 ```python
-from retrosheet import Parser
-parser = Parser()
-info, starting, plays, er, subs, comments, rosters, teams = parser.parse_years(yearFrom=1921, yearTo=2017, save_to_csv=True)
+from retrosheet import Retrosheet
+rs = Retrosheet()
+rs.get_data(yearFrom=1921, yearTo=2017)
+rs.save_csv()
 ```
 ```bash
 >>> [========------------------] 33.5% ... 1959
@@ -48,8 +49,7 @@ info, starting, plays, er, subs, comments, rosters, teams = parser.parse_years(y
 
 ### Parsing plays
 
-We can also visually check all plays for a sequence (without statistics for now). The code below looks for all plays in an inning, priting the diamond after each play. The diamond separates H and B location for us to visualize how many runs
-happened in the sequence.
+We can also visually check all plays for a sequence (without statistics for now). The code below looks for all plays in an inning, printing the diamond for each play/event. The diamond separates H and B location to make it easier to see how many runs happened in the sequence.
 
 
 ```python
@@ -60,7 +60,7 @@ event_sequence = [
 'W.1-2''S8.3-H;2-H;1X3(8254)','4']
 
   play = {'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0, 'run': 0}
-  event = Event('NP', play) #start event with no play
+  event = Event() #start event with no play
 
   print ('Beginning of the play:\n')
   for string in event_sequence:
@@ -78,41 +78,7 @@ Play: S9
 |-------------------------|
 Runs: 0	Outs: 0
 
-Play: S7.1-2
-|---------[ 1 ]-----------|
-|-------------------------|
-|----[ 0 ]------[ 1 ]-----|
-|-------------------------|
-|------[ 0 ]--[ 0 ]-------|
-|-------------------------|
-Runs: 0	Outs: 0
-
-Play: 34/SH.2-3;1-2
-|---------[ 1 ]-----------|
-|-------------------------|
-|----[ 1 ]------[ 0 ]-----|
-|-------------------------|
-|------[ 0 ]--[ 0 ]-------|
-|-------------------------|
-Runs: 0	Outs: 1
-
-Play: S9.3-H;2-3
-|---------[ 0 ]-----------|
-|-------------------------|
-|----[ 1 ]------[ 1 ]-----|
-|-------------------------|
-|------[ 1 ]--[ 0 ]-------|
-|-------------------------|
-Runs: 1	Outs: 1
-
-Play: W.1-2S8.3-H;2-H;1X3(8254)
-|---------[ 0 ]-----------|
-|-------------------------|
-|----[ 0 ]------[ 1 ]-----|
-|-------------------------|
-|------[ 3 ]--[ 0 ]-------|
-|-------------------------|
-Runs: 3	Outs: 2
+(...)
 
 Play: 4
 |---------[ 0 ]-----------|
@@ -132,19 +98,22 @@ Runs: 3	Outs: 3
   - For the events file, the pitches field sometimes repeats over the following role, whenever there was a play (CS, SB, etc.). In these cases, the code needs to remove the duplication.
 
 ## Notation questions
-  - Interesting event play sequence: *'S9.3-H(TUR);2-H(TUR);1-3;BX2(93)'*. It is a single, but the baserunner tries to go for second and is out.
+
+  - Interesting event play sequence: *'S9.3-H(TUR);2-H(TUR);1-3;BX2(93)'*. It is a single, but the baserunner tries to go for 2B and is out.
 
 ### Play Field in Event File:
+
   - What does 'BF' in '1/BF' stand for? bunt fly?
   - Why some specific codes for modifier are 2R / 2RF / 8RM / 8RS / 8RXD / L9Ls / RNT ?
 
 ## Missing Parsing
 
-  - Plays [======**50%**-----]:
-    - Missing trajectory, errors, RBIs and player-related to each event.
+  - Plays:
+    - Missing trajectory, errors, RBIs and player-related stats.
     - Need to test if all innings end in 3 out. Ran some spot checks and it seems to work.
-  - Pich counts [======**70%**-----]
+  - Pich counts
     - Need to spot check and compare to official statistics
   - Other files
     - Playoff files
     - Additional files
+    - Player / [Parks files](https://www.retrosheet.org/parkcode.txt)

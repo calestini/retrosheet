@@ -5,9 +5,11 @@ from io import BytesIO
 from zipfile import ZipFile
 from urllib.request import urlopen
 import logging
+import datetime
 
 from .event import Event
 from .helpers import progress
+from .version import __version__
 
 
 class Retrosheet(object):
@@ -27,6 +29,7 @@ class Retrosheet(object):
         self.comments = pd.DataFrame()
         self.rosters = pd.DataFrame()
         self.teams = pd.DataFrame()
+        self.metadata = pd.DataFrame()
 
 
     def _pitch_count(self, string, current_count):
@@ -61,57 +64,32 @@ class Retrosheet(object):
             zipfile = ZipFile(BytesIO(resp.read()))
             #self.log.debug("Donwloading from the web")
 
-        infos = []
-        starting = []
-        plays = []
-        er = [] #earned runs
-        subs = []
-        comments = []
-        rosters = []
-        teams = []
-        play_sequence = []
+        infos, starting, plays, er, subs, comments, rosters, teams, metadata = ([] for i in range(9))
 
         for file in zipfile.namelist():
+
+            metadata.append([file, datetime.datetime.now(), __version__])
 
             if file[:4] == 'TEAM':
 
                 for row in zipfile.open(file).readlines():
                     row = row.decode("utf-8")
-
-                    team_piece = [
-                        row.rstrip('\n').split(',')[0],
-                        row.rstrip('\n').split(',')[1],
-                        row.rstrip('\n').split(',')[2],
-                        row.rstrip('\n').split(',')[3].strip('\r')
-                    ]
-
+                    team_piece = []
+                    for i in range(4): team_piece.append(row.rstrip('\n').split(',')[i].strip('\r'))
                     teams.append([year]+team_piece)
 
             elif file[-3:] == 'ROS': #roster file
-                team_abbr = file[:3]
 
                 for row in zipfile.open(file, 'r').readlines():
                     row = row.decode("utf-8")
-
-                    roster_piece = [
-                        row.rstrip('\n').split(',')[0],
-                        row.rstrip('\n').split(',')[1],
-                        row.rstrip('\n').split(',')[2],
-                        row.rstrip('\n').split(',')[3],
-                        row.rstrip('\n').split(',')[4],
-                        row.rstrip('\n').split(',')[5],
-                        row.rstrip('\n').split(',')[6].strip('\r')
-                    ]
-
-                    rosters.append([year, team_abbr]+roster_piece)
+                    roster_piece = []
+                    for i in range(7): roster_piece.append(row.rstrip('\n').split(',')[i].strip('\r'))
+                    rosters.append([year]+roster_piece)
 
             else: #event file
-                order = 0
-                game_id = 0
-                version = 0
+                order, game_id, version, runs = (0 for i in range(4))
                 inning = '1'
                 team = '0'
-                runs = 0
 
                 file_lines = zipfile.open(file, 'r').readlines()
                 for loop, row in enumerate(file_lines):
@@ -119,26 +97,28 @@ class Retrosheet(object):
                     row = row.decode("utf-8")
                     row_type = row.rstrip('\n').split(',')[0]
 
-
                     if row_type == 'id':
+
                         #initialize variables
                         order = 0
                         game_id = row.rstrip('\n').split(',')[1].strip('\r')
                         event.play = {'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 3, 'run': 0}
                         home_team_score = 0
                         away_team_score = 0
-                        #print ('\nGame:\t{0}'.format(game_id))
-                        #ids.append(game_id)
+
+                        infos.append([game_id, '__version__', __version__]) # parsing version
+                        infos.append([game_id, 'file', file])               # file name
 
                     if row_type == 'version':
                         version = row.rstrip('\n').split(',')[1].strip('\r')
 
                     if row_type == 'info':
-                        info_piece = [
-                            row.rstrip('\n').split(',')[1],
-                            row.rstrip('\n').split(',')[2].strip('\r').strip('"').strip('"')
-                        ]
-                        infos.append([game_id]+ info_piece)
+                        var = row.rstrip('\n').split(',')[1]
+                        value = row.rstrip('\n').split(',')[2].strip('\r').strip('"').strip('"')
+                        value = None if value == 'unknown' else value
+                        value = None if value == 0 and var == 'temp' else value
+                        value = None if value == -1 and var == 'windspeed' else value
+                        infos.append([game_id, var, value])
 
                     if row_type == 'start':
                         #it marks the starting players for a game
@@ -151,6 +131,7 @@ class Retrosheet(object):
                                 away_pitcher_id = row.rstrip('\n').split(',')[1]
                                 away_pitch_count = 0
 
+                        for i in range()
                         start_piece = [
                             row.rstrip('\n').split(',')[1],
                             row.rstrip('\n').split(',')[2].strip('"'),
@@ -173,9 +154,6 @@ class Retrosheet(object):
 
                         event.str = row.rstrip('\n').split(',')[6].strip('\r')
                         event.decipher()
-
-                        play_sequence.append([event.str, event.play])
-
 
                         if row.rstrip('\n').split(',')[2] == '0': #the opposite team is pitching
                             pitcher_id = home_pitcher_id
@@ -243,6 +221,11 @@ class Retrosheet(object):
                         comments.append([order, game_id, version] + com_piece)
 
                     if row_type == 'data':
+
+                        #add info of game that just finished #check
+                        infos.append([game_id, 'hometeam_score', home_team_score])
+                        infos.append([game_id, 'awayteam_score', away_team_score])
+
                         data_piece = [
                             row.rstrip('\n').split(',')[1],
                             row.rstrip('\n').split(',')[2],
@@ -250,9 +233,16 @@ class Retrosheet(object):
                         ]
                         er.append([game_id, version] + data_piece)
 
-        rosters_df = pd.DataFrame(rosters, columns = ['year','team_abbr','player_id','last_name','first_name','batting_hand','throwing_hand','team_abbr','position'])
+        rosters_df = pd.DataFrame(rosters, columns = ['year','player_id','last_name','first_name','batting_hand','throwing_hand','team_abbr_1','position'])
         teams_df = pd.DataFrame(teams, columns=['year','team_abbr','league','city','name'])
-        games = pd.DataFrame(infos, columns = ['game_id','var','value'])#.drop_duplicates().pivot('game_id','var','value').reset_index()
+
+        try:
+            info = pd.DataFrame(infos, columns = ['game_id','var','value'])
+            games = info[~info.duplicated(subset=['game_id','var'], keep='last')].pivot('game_id','var','value').reset_index()
+
+        except:
+            self.log.warning('{0}: Error on pivoting games'.format(year))
+            games = pd.DataFrame()
         starting_df = pd.DataFrame(starting, columns = ['game_id','version','player_id','player_name','home_team','batting_position','fielding_position'])
         subs_df = pd.DataFrame(subs, columns = ['order','game_id','version', 'player_id','player_name','home_team','batting_position','position'])
         plays_df = pd.DataFrame(plays, columns = [
@@ -261,8 +251,9 @@ class Retrosheet(object):
         ])
         comments_df = pd.DataFrame(comments, columns = ['order','game_id','version','comment'])
         er_df = pd.DataFrame(er, columns = ['game_id','version','earned_run','player_id','variable'])
+        metadata_df = pd.DataFrame(metadata, columns = ['file', 'datetime', 'version'])
 
-        return games ,starting_df , plays_df, er_df, subs_df, comments_df, rosters_df, teams_df
+        return games ,starting_df , plays_df, er_df, subs_df, comments_df, rosters_df, teams_df, metadata_df
 
 
     def get_data(self, yearFrom='2017', yearTo=None):
@@ -277,7 +268,7 @@ class Retrosheet(object):
             total = yearTo-yearFrom+1
             progress(count, total, status=year)
 
-            info_temp, starting_temp, plays_temp, er_temp, subs_temp, comments_temp, rosters_temp, teams_temp = self.parse_file(year)
+            info_temp, starting_temp, plays_temp, er_temp, subs_temp, comments_temp, rosters_temp, teams_temp, meta = self.parse_file(year)
 
             self.info = self.info.append(info_temp)
             self.starting = self.starting.append(starting_temp)
@@ -287,6 +278,7 @@ class Retrosheet(object):
             self.comments = self.comments.append(comments_temp)
             self.rosters = self.rosters.append(rosters_temp)
             self.teams = self.teams.append(teams_temp)
+            self.metadata = self.metadata.append(meta)
 
         progress(100,100, status="Files Parsed")
         self.log.warning(self.errors)
@@ -306,6 +298,7 @@ class Retrosheet(object):
         self.comments.to_csv('{0}comments.csv'.format(path), index=False)
         self.rosters.to_csv('{0}rosters.csv'.format(path), index=False)
         self.teams.to_csv('{0}teams.csv'.format(path), index=False)
+        self.metadata.to_csv('{0}metadata.csv'.format(path), index=False)
 
         self.log.warning('Saved ...')
 

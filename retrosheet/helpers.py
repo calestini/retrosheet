@@ -36,4 +36,18 @@ def position_name(position_number):
         '11':'PH',  #pinch hitter
         '12':'PR',  #pinch runner
         }
-    return position_dic[position_number]
+    if position_number in position_dic:
+        return position_dic[position_number]
+    return position_number
+
+
+def field_conditions(string):
+    """
+    fieldcond: dry, soaked, wet, unknown;
+    precip: drizzle, none, rain, showers, snow, unknown;
+    sky: cloudy, dome, night, overcast, sunny, unknown;
+    winddir: fromcf, fromlf, fromrf, ltor, rtol, tocf, tolf, torf, unknown;
+    temp: (0 is unkown)
+    windspeed: (-1 is unkown)
+    """
+    pass
