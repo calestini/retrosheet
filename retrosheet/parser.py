@@ -57,12 +57,11 @@ class Retrosheet(object):
 
         try: #the files locally:
             zipfile = ZipFile(filename)
-            #self.log.debug("Found locally")
+            self.log.debug("Found locally")
         except: #take from the web
             resp = urlopen(self.endpoint + filename)
-            #print (year)
             zipfile = ZipFile(BytesIO(resp.read()))
-            #self.log.debug("Donwloading from the web")
+            self.log.debug("Donwloading from the web")
 
         infos, starting, plays, er, subs, comments, rosters, teams, metadata = ([] for i in range(9))
 
@@ -75,7 +74,7 @@ class Retrosheet(object):
                 for row in zipfile.open(file).readlines():
                     row = row.decode("utf-8")
                     team_piece = []
-                    for i in range(4): team_piece.append(row.rstrip('\n').split(',')[i].strip('\r'))
+                    for i in range(4): team_piece.append(row.rstrip('\n').split(',')[i].replace('\r',''))
                     teams.append([year]+team_piece)
 
             elif file[-3:] == 'ROS': #roster file
@@ -83,7 +82,7 @@ class Retrosheet(object):
                 for row in zipfile.open(file, 'r').readlines():
                     row = row.decode("utf-8")
                     roster_piece = []
-                    for i in range(7): roster_piece.append(row.rstrip('\n').split(',')[i].strip('\r'))
+                    for i in range(7): roster_piece.append(row.rstrip('\n').split(',')[i].replace('\r',''))
                     rosters.append([year]+roster_piece)
 
             else: #event file
@@ -114,15 +113,15 @@ class Retrosheet(object):
 
                     if row_type == 'info':
                         var = row.rstrip('\n').split(',')[1]
-                        value = row.rstrip('\n').split(',')[2].strip('\r').strip('"').strip('"')
+                        value = row.rstrip('\n').split(',')[2].replace('\r','').replace('"','')
                         value = None if value == 'unknown' else value
                         value = None if value == 0 and var == 'temp' else value
                         value = None if value == -1 and var == 'windspeed' else value
+
                         infos.append([game_id, var, value])
 
                     if row_type == 'start':
-                        #it marks the starting players for a game
-                        #first take pitcher id
+                        #starting pitchers
                         if row.rstrip('\n').split(',')[5].strip('\r') == '1':
                             if row.rstrip('\n').split(',')[3] == '1':
                                 home_pitcher_id = row.rstrip('\n').split(',')[1]
@@ -131,7 +130,9 @@ class Retrosheet(object):
                                 away_pitcher_id = row.rstrip('\n').split(',')[1]
                                 away_pitch_count = 0
 
-                        for i in range()
+                        start_piece = []
+                        for i in range(1,6,1): start_piece.append(row.rstrip('\n').split(',')[i].replace('"','').replace('\r',''))
+                        '''
                         start_piece = [
                             row.rstrip('\n').split(',')[1],
                             row.rstrip('\n').split(',')[2].strip('"'),
@@ -139,6 +140,7 @@ class Retrosheet(object):
                             row.rstrip('\n').split(',')[4],
                             row.rstrip('\n').split(',')[5].strip('\r')
                         ]
+                        '''
                         starting.append([game_id, version]+start_piece)
 
                     if row_type == 'play':
@@ -236,13 +238,12 @@ class Retrosheet(object):
         rosters_df = pd.DataFrame(rosters, columns = ['year','player_id','last_name','first_name','batting_hand','throwing_hand','team_abbr_1','position'])
         teams_df = pd.DataFrame(teams, columns=['year','team_abbr','league','city','name'])
 
-        try:
-            info = pd.DataFrame(infos, columns = ['game_id','var','value'])
-            games = info[~info.duplicated(subset=['game_id','var'], keep='last')].pivot('game_id','var','value').reset_index()
 
-        except:
-            self.log.warning('{0}: Error on pivoting games'.format(year))
-            games = pd.DataFrame()
+        info = pd.DataFrame(infos, columns = ['game_id','var','value'])
+        games = info[~info.duplicated(subset=['game_id','var'], keep='last')].pivot('game_id','var','value').reset_index()
+        #self.log.warning('{0}: Error on pivoting games'.format(year))
+        #games = pd.DataFrame()
+
         starting_df = pd.DataFrame(starting, columns = ['game_id','version','player_id','player_name','home_team','batting_position','fielding_position'])
         subs_df = pd.DataFrame(subs, columns = ['order','game_id','version', 'player_id','player_name','home_team','batting_position','position'])
         plays_df = pd.DataFrame(plays, columns = [
