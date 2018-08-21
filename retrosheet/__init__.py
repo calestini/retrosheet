@@ -4,7 +4,7 @@ import logging.config
 
 
 from .event import Event
-from .parser import Parser
+from .parser import Retrosheet
 
 
 def setup_logging(default_path='logging.json', default_level=logging.INFO, env_key='LOG_CFG'):

@@ -7,16 +7,17 @@ class Event(object):
 
     """Events
     Parameters:
-        - event_string
+        - event_string (NP = No Play)
         - play = {'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0, 'run': 0}
 
-    Clean code, make it less redundant, potentially in a module only.
+    TODO:
+        - clean code, make it less redundant, potentially in a module only.
     """
 
-    def __init__(self, event_string='NP', play={'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0, 'run': 0}):
+    def __init__(self):
         self.log = logging.getLogger(__name__)
-        self.str = event_string
-        self.play = play
+        self.str = 'NP'
+        self.play = {'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0, 'run': 0}
 
     def _print_diamond(self):
         """
@@ -514,6 +515,6 @@ class EventNotFoundError(Exception):
     """ Exception that is raised when an event is not recognized
     """
     def __init__(self, error, event):
-        #self.log = logging.getLogger(__name__)
-        #self.log.debug("Event not found")
+        self.log = logging.getLogger(__name__)
+        self.log.debug("Event not found")
         super(EventNotFoundError, self).__init__(event)
