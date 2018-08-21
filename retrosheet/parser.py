@@ -317,7 +317,7 @@ class Parser(object):
         #earned runs for each pitcher.
         er_df = pd.DataFrame(er, columns = ['game_id','version','earned_run','player_id','variable'])
 
-        self.log.warning(len(self.errors))
+        #self.log.warning(len(self.errors))
 
         return games ,starting_df , plays_df, er_df, subs_df, comments_df, rosters_df, teams_df#, plays_detailed_df, ids_df, versions_df
 

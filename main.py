@@ -1,6 +1,4 @@
-from retrosheet import Parser, Event
-
-
+from retrosheet import Parser, Events
 from argparse import ArgumentParser
 
 
