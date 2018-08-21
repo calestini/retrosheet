@@ -74,10 +74,7 @@ class Parser(object):
         pass
 
     def parse_file(self, year):
-        ########################################################################
-        #ENDPOINT = 'https://www.retrosheet.org/events/'
-        #EXTENSION = '.zip'
-        ########################################################################
+
         """
         Will parse the file respective for one year.
         - It will first look for the file in current directory
@@ -104,6 +101,7 @@ class Parser(object):
         comments = []
         rosters = []
         teams = []
+        play_sequence = []
 
         for file in zipfile.namelist():
 
@@ -146,19 +144,21 @@ class Parser(object):
                 version = 0
                 inning = '1'
                 team = '0'
-                play_sequence = []
+                runs = 0
 
-                for loop, row in enumerate(zipfile.open(file, 'r').readlines()):
+                file_lines = zipfile.open(file, 'r').readlines()
+                for loop, row in enumerate(file_lines):
 
                     row = row.decode("utf-8")
-                    #rows.append(row.rstrip('\n'))
                     row_type = row.rstrip('\n').split(',')[0]
-                    #print (row_type)
+
 
                     if row_type == 'id':
                         order = 0
                         game_id = row.rstrip('\n').split(',')[1].strip('\r')
                         event.play = {'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 3, 'run': 0}
+                        home_team_score = 0
+                        away_team_score = 0
                         #print ('\nGame:\t{0}'.format(game_id))
                         #ids.append(game_id)
 
@@ -199,39 +199,57 @@ class Parser(object):
 
                     if row_type == 'play':
 
-                        if team != row.rstrip('\n').split(',')[2]:
-                            if not row.rstrip('\n').split(',')[2] == '0' and not row.rstrip('\n').split(',')[1] == '1':
+                        if team != row.rstrip('\n').split(',')[2]: #if previous team != current team
+                            runs = 0
+                            if not row.rstrip('\n').split(',')[2] == '0' and not row.rstrip('\n').split(',')[1] == '1': #if not first obs
                                 #assert (event.play['out'] == 3),"Game: {3} Inning {0} team {4} ended with {1} outs [{2}]".format(inning,event.play['out'], event.str, game_id, team)
                                 if event.play['out'] != 3:
                                     self.errors.append("Game: {3} Inning {0} team {4} ended with {1} outs [{2}]".format(inning,event.play['out'], event.str, game_id, team))
                                     event.play['out'] = 0
-                            #play_sequence = [] #restart at every inning
+
 
                         event.str = row.rstrip('\n').split(',')[6].strip('\r')
                         event.decipher()
-                        #play_dict = event.play
+
                         play_sequence.append([event.str, event.play])
 
-                        inning = row.rstrip('\n').split(',')[1]
-                        team = row.rstrip('\n').split(',')[2]
 
                         if row.rstrip('\n').split(',')[2] == '0': #the opposite team is pitching
                             pitcher_id = home_pitcher_id
                             #calculate new home pitch count
                             home_pitch_count = self._pitch_count(row.rstrip('\n').split(',')[5], home_pitch_count)
                             pitch_count = home_pitch_count
-                        else: #away
+                            away_team_score = away_team_score + event.play['run'] - runs
+
+
+                        elif row.rstrip('\n').split(',')[2] == '1': #away
                             pitcher_id = away_pitcher_id
                             #calculate new away pitch count
                             away_pitch_count = self._pitch_count(row.rstrip('\n').split(',')[5], away_pitch_count)
                             pitch_count = away_pitch_count
+                            home_team_score = home_team_score + event.play['run'] - runs
+
+
+                        inning = row.rstrip('\n').split(',')[1]
+                        team = row.rstrip('\n').split(',')[2]
+                        runs = event.play['run']
+
 
                         play_piece = [
                             inning, team, pitcher_id, pitch_count,
                             row.rstrip('\n').split(',')[3],
                             row.rstrip('\n').split(',')[4],
                             row.rstrip('\n').split(',')[5],
-                            row.rstrip('\n').split(',')[6].strip('\r')
+                            row.rstrip('\n').split(',')[6].strip('\r'),
+                            event.play['B'],
+                            event.play['1'],
+                            event.play['2'],
+                            event.play['3'],
+                            event.play['H'],
+                            event.play['run'],
+                            event.play['out'],
+                            away_team_score,
+                            home_team_score
                         ]
                         plays.append([order, game_id, version] + play_piece)
 
@@ -271,10 +289,6 @@ class Parser(object):
                         ]
                         er.append([game_id, version] + data_piece)
 
-        #dataframe for ids and versions. Information purposes only
-        #ids_df = pd.DataFrame(ids, columns = ['game_id'])
-        #versions_df = pd.DataFrame(versions, columns = ['version'])
-
         #rosters
         rosters_df = pd.DataFrame(rosters, columns = ['year','team_abbr','player_id','last_name','first_name','batting_hand','throwing_hand','team_abbr','position'])
 
@@ -292,7 +306,10 @@ class Parser(object):
         subs_df = pd.DataFrame(subs, columns = ['order','game_id','version', 'player_id','player_name','home_team','batting_position','position'])
 
         #play-by-play dataframe. Plays are not parsed yet.
-        plays_df = pd.DataFrame(plays, columns = ['order','game_id','version','inning','home_team','pitcher_id','pitch_count','batter_id','count_on_batter','pitches','play'])
+        plays_df = pd.DataFrame(plays, columns = [
+        'order','game_id','version','inning','home_team','pitcher_id','pitch_count','batter_id','count_on_batter','pitches','play',
+        'B','1','2','3','H','run','out','away_score','home_score'
+        ])
 
         #comments are not parsed.
         comments_df = pd.DataFrame(comments, columns = ['order','game_id','version','comment'])
@@ -302,10 +319,13 @@ class Parser(object):
 
         self.log.warning(len(self.errors))
 
-        return games ,starting_df , plays_df, er_df, subs_df, comments_df, rosters_df, teams_df#, ids_df, versions_df
+        return games ,starting_df , plays_df, er_df, subs_df, comments_df, rosters_df, teams_df#, plays_detailed_df, ids_df, versions_df
 
 
-    def parse_years(self, yearFrom, yearTo, save_to_csv=True):
+    def get_data(self, yearFrom, yearTo, save_to_csv=True):
+
+        #resultset = ['info','starting','plays','er','subs','comments','rosters','teams']
+        #for name in resultset: exec(name + ' = pd.DataFrame()')
 
         info = pd.DataFrame()
         starting = pd.DataFrame()
@@ -315,8 +335,10 @@ class Parser(object):
         comments = pd.DataFrame()
         rosters = pd.DataFrame()
         teams = pd.DataFrame()
+        #plays_detailed = pd.DataFrame()
 
         self.log.warning('Downloading Files ...')
+
         for count, year in enumerate(range(yearFrom,yearTo+1,1), 0): #+1 for inclusive
             #print (yea)
             total = yearTo-yearFrom+1
@@ -332,6 +354,7 @@ class Parser(object):
             comments = comments.append(comments_temp)
             rosters = rosters.append(rosters_temp)
             teams = teams.append(teams_temp)
+            #plays_detailed = plays_detailed.append(plays_detailed_temp)
 
         self._progress(100,100, status="Files Downloaded")
         self.log.warning(self.errors)
@@ -348,7 +371,8 @@ class Parser(object):
             comments.to_csv('comments.csv', index=False)
             rosters.to_csv('rosters.csv', index=False)
             teams.to_csv('teams.csv', index=False)
+            #plays_detailed.to_csv('plays_detailed.csv', index=False)
 
             self.log.warning('Saved ...')
 
-        return info, starting, plays, er, subs, comments, rosters, teams
+        return info, starting, plays, er, subs, comments, rosters, teams#, plays_detailed

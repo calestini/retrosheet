@@ -14,7 +14,7 @@ if __name__ == '__main__':
     #print (args.year_start)
 
     parser = Parser()
-    info, starting, plays, er, subs, comments, rosters, teams = parser.parse_years(yearFrom=args.year_start, yearTo=args.year_end, save_to_csv=False)
+    info, starting, plays, er, subs, comments, rosters, teams = parser.get_data(yearFrom=args.year_start, yearTo=args.year_end, save_to_csv=True)
 
     """
     #Example for event function
