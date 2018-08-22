@@ -3,6 +3,171 @@
 import logging
 import re
 
+class Event1(object):
+    """
+    New Parsing class
+    """
+    def __init__(self):
+        self.log = logging.getLogger(__name__)
+        self.str = 'NP'
+        self.play = {'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0, 'run': 0}
+
+
+    def _initialize_modifiers(self):
+        self.modifiers = {
+        'out': 0,
+        'run': 0,
+        'bunt': 0,
+        'trajectory': '',
+        'location': '',
+        'errors':[],
+        'interference':'',
+        'review': '',
+        'foul': 0,
+        'force out': 0,
+        'throw':0,
+        'sacrifice': '',
+        'relay':0,
+        'other':[],
+        'courtesy':'',
+        'passes': ''
+        }
+
+
+    def _modifiers(self):
+        """
+        """
+        ### Play Modifier:
+        for mpm in self.mpm:
+            mpm = mpm.replace('#','').replace('-','').replace('+','')\
+                    .replace('!','').replace('?','').upper()
+
+            if re.findall('^[B]?[PUGFL]?DP$',mpm): #double play
+                self.modifiers['out'] = 2
+                self.modifiers['bunt'] = 1 if mpm[0]=='B' else 0
+                if self.modifiers['trajectory'] == '':
+                    self.modifiers['trajectory'] = mpm[1] if mpm[1] in ['PGFL'] else ''
+                    self.modifiers['trajectory'] = mpm[0] if mpm[0] in ['PGFL'] else ''
+            elif re.findall('^[B]?[PUGFL]?TP$',mpm): #tripple play
+                self.modifiers['out'] = 3
+            elif re.findall('^[B]$',mpm): #tripple play
+                self.modifiers['bunt'] = 1
+            elif re.findall('^COU[BFR]$',mpm): #courtesy batter , fielder, runner
+                self.modifiers['courtesy'] = mpm[3]
+            elif re.findall('^[BFRU]?INT$', mpm): #interception
+                self.modifiers['interference'] = mpm[0] if mpm[0] in ['B','F','R','U'] else ''
+            elif re.findall('^[MU]REV$', mpm): #review
+                self.modifiers['review'] = mpm[0]
+            elif re.findall('^FL$', mpm): #foul
+                self.modifiers['foul'] = 1
+            elif re.findall('^FO$', mpm): #force out
+                self.modifiers['force out']= 1
+            elif re.findall('^TH[H]?[1-9\)]*$', mpm): #throw
+                self.modifiers['throw']= 1
+            elif re.findall('^S[FH]$', mpm): #sacrifice hit or fly
+                self.modifiers['sacrifice']= mpm[1]
+                self.modifiers['bunt'] = 1 if mpm[1]=='H' else 0 #sacrifice hit is a bunt
+            elif re.findall('^[U]?[6]?R[0-9URNHBS]*(?:\(TH\))?$', mpm): #relay
+                self.modifiers['relay'] = 1
+                self.modifiers['passes'] = mpm
+                if re.findall('TH',mpm):
+                    self.modifiers['throw'] = 1
+            elif re.findall('^E[1-9]*$', mpm): #error on $
+                self.modifiers['errors'].append(mpm[1]) if len(mpm)>1 else ''
+            elif mpm in ['AP','BOOT','IPHR','NDP','BR','IF','OBS','PASS','C','U','RNT']: #other #U for unkown
+                self.modifiers['other'].append(mpm)
+            elif re.findall('^B?[PGFL][1-9MLRDXSF]?[1-9LRMXDSFW]*$',mpm):
+                self.modifiers['bunt'] = 1 if mpm[0] =='B' else 0
+                if self.modifiers['trajectory'] =='':
+                    self.modifiers['trajectory'] = mpm[1] if mpm[0] =='B' else mpm[0]
+                if self.modifiers['location'] == '':
+                    self.modifiers['location'] = mpm[2:] if mpm[0] =='B' else mpm[1:]
+            elif re.findall('^[BU]?[1-9MLRDXSF][1-9LRMXDSFW]*$' ,mpm):
+                self.modifiers['bunt'] = 1 if mpm[0] =='B' else 0
+                self.modifiers['location'] = mpm
+            elif mpm == '' or mpm=='U4U1':
+                pass
+            else:
+                self.log.debug('Event Not Known: {0}'.format(mpm))
+
+
+
+    def _split_plays(self):
+        """
+        split the play into:
+            - main play --> main string
+            - implicit advances --> calculated
+            - main play modifiers --> separated by '/'
+            - secondary_play --> (for K+ and [I]W+ events)
+
+            - explicit advances --> separated from main play by '.'. It is = explicit move + advance description + advance modifiers
+            - explicit move --> the move of players, without modifiers. base-base or baseXbase
+            - advance description --> descriptors only, enclosed by '()'
+            - advance modifiers --> modifiers for the description, separated by '/'
+        """
+        self.mp = []  # main play
+        self.mpm= []  # main play modifiers, preceeded by '/'
+        self.mpd = [] # main play describers, inside '()'
+
+        self.mpdm = []# main play describer modifiers, preceeded by '/' #not in use for now
+
+        self.sp = []  # secondary play
+        self.spm = [] # secondary play modifiers, preceeded by '/'
+
+        self.ea = []  # explicit advances
+        self.em = []  # explicit move
+        self.ad = []  # advance descriptions
+        self.am = []  # advance modifiers
+
+        #main part:
+        self.mp = re.findall('^(?:[^\.^\+^/]+)', self.str.split('.')[0].split('+')[0])#self.str.split('.')[0]
+        #print ('\nmp:\t', self.mp)
+
+        self.mpm = re.findall('(?<=/)[^\+^/]+', self.str.split('.')[0].split('+')[0])
+        #print ('\nmpm:\t', self.mpm)
+
+        self.mpd = re.findall('(?<=\()(?:[^\)^/])+', self.str.split('.')[0].split('+')[0])
+        #print ('\nmpd\t', self.mpd)
+
+
+        #secondary play
+
+        self.sp = re.findall('(?<=\+)(?:[^\.^\+^/]+)', self.str.split('.')[0])
+        #print ('\nsp:\t', self.sp)
+
+        str_spm = self.str.split('.')[0].split('+',1)[1] if len(self.str.split('.')[0].split('+',1)) > 1 else ''
+        self.spm = re.findall('(?<=/)(?:[^/^\+]+)', str_spm)
+        #print ('\nspm:\t', self.spm)
+
+        #advances:
+        self.ea = self.str.split('.')[len(self.str.split('.'))-1].split(';') if len(self.str.split('.'))>1 else []
+        for advance in self.ea: self.em.append(re.findall('[1-3B][\-X][1-3H]', advance))
+        for advance in self.ea: self.ad.append(re.findall('(?<=\()(?:[^\)^/]+)', advance))
+        for advance in self.ea:
+            describers = re.findall('(?<=\()(?:[^\)]+)', advance)
+            if not describers:
+                self.am.append([[]])
+            else:
+                temp = []
+                for describer in describers:
+                    temp.append(re.findall('(?<=/)[^/^\)]+', describer))
+                self.am.append(temp)
+
+        #print ('\nea:\t', self.ea)
+        #print ('\nem:\t', self.em)
+        #print ('\nad:\t', self.ad)
+        #print ('\nam:\t', self.am)
+
+
+    def parse_event(self):
+        """
+        """
+        self._split_plays()
+
+        self._initialize_modifiers()
+        self._modifiers()
+
+
 class Event(object):
 
     """Events
@@ -263,7 +428,7 @@ class Event(object):
             result = 'balk'
             pass #will test for explicit
 
-        ##double plays
+        ##double
         elif re.findall('^D[0-9]*\??$', a):
             result = 'double'
             if not self.play['B'] == 0:
@@ -516,5 +681,5 @@ class EventNotFoundError(Exception):
     """
     def __init__(self, error, event):
         self.log = logging.getLogger(__name__)
-        self.log.debug("Event not found")
+        self.log.debug("Event not found: {0}".format(event))
         super(EventNotFoundError, self).__init__(event)

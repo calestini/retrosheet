@@ -3,7 +3,7 @@ import json
 import logging.config
 
 
-from .event import Event
+from .event import Event, Event1
 from .parser import Retrosheet
 from .version import __version__
 
