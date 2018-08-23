@@ -2,35 +2,28 @@
 
 import logging
 import re
+from .helpers import out_in_advance, advance_base
+
 
 class Event1(object):
     """
     New Parsing class
     """
+
+
     def __init__(self):
         self.log = logging.getLogger(__name__)
         self.str = 'NP'
         self.play = {'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0, 'run': 0}
+        self.batting_lineup = {'1':'', '2':'','3':'', '4':'','5':'','6':'','7':'','8':'','9':''}
+        self.fielding_lineup = {'1':'', '2':'','3':'', '4':'','5':'','6':'','7':'','8':'','9':''}
 
 
     def _initialize_modifiers(self):
         self.modifiers = {
-        'out': 0,
-        'run': 0,
-        'bunt': 0,
-        'trajectory': '',
-        'location': '',
-        'errors':[],
-        'interference':'',
-        'review': '',
-        'foul': 0,
-        'force out': 0,
-        'throw':0,
-        'sacrifice': '',
-        'relay':0,
-        'other':[],
-        'courtesy':'',
-        'passes': ''
+        'out': 0, 'run': 0, 'bunt': 0, 'trajectory': '','location': '',
+        'errors':[], 'interference':'', 'review': '','foul': 0, 'force out': 0,
+        'throw':0, 'sacrifice': '', 'relay':0, 'other':[], 'courtesy':'','passes': ''
         }
 
 
@@ -90,6 +83,92 @@ class Event1(object):
             else:
                 self.log.debug('Event Not Known: {0}'.format(mpm))
 
+
+    def _describers(self):
+        ### Play describers:
+        pass
+
+
+    def _advances(self):
+        ### Explicit advances
+        self.advances={'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0,'run': 0}
+
+        for loop, move in enumerate(self.em):
+            move = move[0]
+            if re.findall('X', move):
+                self.advances = out_in_advance(self.advances, bfrom=move[0], bto=move[2])
+            elif re.findall('\-', move):
+                self.advances = advance_base(self.advances, bfrom=move[0], bto=move[2])
+            else:
+                self.log.debug('Explicit move not found: {0}'.format(move))
+
+
+    def _main_play(self):
+        self.main_play={'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0,'run': 0, 'outcome':[]}
+
+        mp = self.mp[0].replace('#','').replace('!','').replace('?','')
+        #mp = 'NP' if not mp or mp == '' else mp
+
+        if re.findall('^[1-9](?:[1-9]*(?:\([B123]\))?)*\+?\-?$', mp): # implicit B out
+            self.main_play =  out_in_advance(self.main_play)#at bat is out
+            for base_out in re.findall('(?:\([123]\))', mp): self.main_play = out_in_advance(self.main_play, bfrom=base_out[1]) #excluding at bat
+        elif re.findall('^[1-9][1-9]*E[1-9]*$', mp): #error on out, B-1 implicit if not explicit
+            self.main_play = advance_base(self.main_play) #B-1 except if explicily moving on advances
+        elif re.findall('^CS[23H](?:\([1-9]+\))+', mp):##caught stealing (except errors):
+            for cs in mp.split(';'): self.main_play = out_in_advance(self.main_play, bto=cs[2])
+        elif re.findall('^CS[23H](?:\([1-9]*E[1-9]+)+', mp): ## caught stealing errors
+            for cs in mp.split(';'): self.main_play = advance_base(self.main_play, bto=cs[2])
+        elif re.findall('^BK$', mp):# balk (batter remains but all other get one base)
+            pass
+        elif re.findall('^D[0-9]*\??$', mp): #double
+            self.main_play = advance_base(self.main_play, bto='2',bfrom='B')
+        elif re.findall('^DGR[0-9]*$', mp): #ground rule double (two bases for everyone as ball went out after being in)
+            self.main_play = advance_base(self.main_play, bto='2',bfrom='B')
+        elif re.findall('^DI$', mp): #defensive indifference
+            pass
+        elif re.findall('^E[1-9]\??$', mp): ## error allowing batter to get on base (B-1 implicit or not)
+            self.main_play = advance_base(self.main_play)
+        elif re.findall('^FC[1-9]?\??$',mp):# fielders choice (also implicit B-1)
+            self.main_play = advance_base(self.main_play)
+        elif re.findall('^FLE[1-9]+$',mp): # error on foul fly play (error given to the play but no advances)
+            pass
+        elif re.findall('^H[R]?[1-9]*[D]?$', mp): #home run
+            self.main_play = advance_base(self.main_play, bto='H',bfrom='B')
+        elif re.findall('^HP$', mp): #hit by pitch
+            self.main_play = advance_base(self.main_play)
+        elif re.findall('^W',mp): # walk
+            self.main_play = advance_base(self.main_play)
+        elif re.findall('^I[W]?',mp): # intentional walk
+            self.main_play = advance_base(self.main_play)
+        elif re.findall('^K',mp): #strikeout
+            self.main_play = out_in_advance(self.main_play)
+        elif re.findall('^NP$',mp): #no play
+            pass
+        elif re.findall('^(?:OA)?(?:99)?$',mp): #unkown play
+            pass
+        elif re.findall('^PB$', mp): #passed ball
+            self.main_play = advance_base(self.main_play)
+        elif re.findall('^PO[123](?:\([1-9]+\))',mp): #picked off of base (without error)
+            self.main_play = out_in_advance(self.main_play, bfrom=mp[2])
+        elif re.findall('^PO[123](?:\([1-9]*E[1-9]+)',mp): #pick off with pass error (no out nothing implicit)
+            pass
+        elif re.findall('^POCS[23H](?:\([1-9]+\))',mp): #POCS%($$) picked off off base % (2, 3 or H) with the runner charged with a caught stealing
+            for split in mp.split(';'): self.main_play = out_in_advance(self.main_play, bto=split[2]) if split[0:2] == 'CS' else  out_in_advance( self.main_play, bto=split[4])  #there are CS events together with POCS
+        elif re.findall('^POCS[23H](?:\([1-9]*E[1-9]+)',mp):#POCS errors
+            pass
+        elif re.findall('^S[0-9]*\??\+?$',mp): #single
+            self.main_play = advance_base(self.main_play)
+        elif re.findall('^SB[23H]',mp): #stolen base
+            for sb in mp.split(';'): self.main_play = advance_base(self.main_play, bto=sb[2]) if sb[0:2] == 'SB' else self.main_play
+        elif re.findall('^T[0-9]*\??\+?$',mp): #triple
+            self.main_play = advance_base(self.main_play, bfrom='B', bto='3')
+        elif re.findall('^WP', mp): ## wild pitch - base runner advances
+            self.main_play = advance_base(self.main_play)
+        elif re.findall('^C$', mp): #usualy 3rd strikeout but not always clear
+            pass
+        else:
+            self.log.debug('Main event not known: {0}'.format(mp))
+            #raise EventNotFoundError('Event Not Known', mp)
 
 
     def _split_plays(self):
@@ -166,6 +245,8 @@ class Event1(object):
 
         self._initialize_modifiers()
         self._modifiers()
+        self._main_play()
+        self._advances()
 
 
 class Event(object):
@@ -639,7 +720,6 @@ class Event(object):
             for sb in a.split(';'):
                 if sb[0:2] == 'SB':
                     self._advance(sb[2])
-        #add code here to mark all bases stolen (1,2 or 3 in the same play)
 
         #tripple
         elif re.findall('^T[0-9]*\??\+?$',a):

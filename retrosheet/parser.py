@@ -7,19 +7,20 @@ from urllib.request import urlopen
 import logging
 import datetime
 
-from .event import Event
+from .event import Event, Event1
 from .helpers import progress
 from .version import __version__
 
 
-class Retrosheet(object):
+class Parser(object):
+    """docstring for Parser."""
 
-    """A python object to parse retrosheet data"""
+    endpoint = 'https://www.retrosheet.org/events/'
+    extension = '.zip'
 
     def __init__(self):
-        self.log = logging.getLogger(__name__)
-        self.endpoint = 'https://www.retrosheet.org/events/'
-        self.extension = '.zip'
+        #self.endpoint =
+        #self.extension = '.zip'
         self.errors = []
         self.info = pd.DataFrame()
         self.starting = pd.DataFrame()
@@ -303,4 +304,12 @@ class Retrosheet(object):
 
         self.log.warning('Saved ...')
 
-        return True
+
+
+class Retrosheet(Event1, Parser):
+
+    """A python object to parse retrosheet data"""
+
+    def __init__(self):
+        Event1.__init__(self)
+        Parser.__init__(self)

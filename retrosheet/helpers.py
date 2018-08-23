@@ -1,7 +1,41 @@
 # encoding: utf-8
-
 import sys
 
+PREVIOUS_BASE  = {'H':'3','3':'2','2':'1','1':'B'}
+NEXT_BASE  = {'B':'1','1':'2','2':'3','3':'H'}
+
+def out_in_advance(play_dict, bto=None, bfrom=None):
+    """runner out when advancing by next base
+    - play_dict: play dictionary
+    - bto : base to, heading to
+    - bfrom: base coming from, previous base
+    """
+    bto = '1' if not bto and not bfrom else bto
+    if bto:
+        play_dict[PREVIOUS_BASE[bto]] = 0
+        play_dict['out'] += 1
+        return play_dict
+    play_dict[bfrom] = 0
+    play_dict['out'] += 1
+    return play_dict
+
+
+def advance_base(play_dict, bto=None, bfrom=None):
+    """runner advanced to next base
+    - play_dict: play dictionary
+    - bto : base to, heading to
+    - bfrom: base coming from, previous base
+    """
+    bto = '1' if not bto and not bfrom else bto
+    if bto == 'H' or bfrom == '3':
+        play_dict['run'] += 1
+    if bto and not bfrom:
+        play_dict.update(dict(zip([PREVIOUS_BASE[bto],bto],(0,1))))
+    elif bfrom and not bto:
+        play_dict.update(dict(zip([bfrom,NEXT_BASE[bfrom]],(0,1))))
+    else: #bto and bfrom explicit
+        play_dict.update(dict(zip([bfrom,bto],(0,1))))
+    return play_dict
 
 def progress(count, total, status=''):
     """
