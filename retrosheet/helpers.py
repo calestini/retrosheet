@@ -4,6 +4,17 @@ import sys
 PREVIOUS_BASE  = {'H':'3','3':'2','2':'1','1':'B'}
 NEXT_BASE  = {'B':'1','1':'2','2':'3','3':'H'}
 
+def pitch_count(string, current_count):
+    """
+    For now it is including pickoffs
+    """
+    #simplest idea:
+    clean_pitches = string.replace('>','').replace('+','').replace('*','').replace('??','')
+    splits = clean_pitches.split('.') #results in a list
+    count = current_count + len(splits[len(splits)-1])
+
+    return count
+
 def out_in_advance(play_dict, bto=None, bfrom=None):
     """runner out when advancing by next base
     - play_dict: play dictionary

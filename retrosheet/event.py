@@ -2,47 +2,66 @@
 
 import logging
 import re
-from .helpers import out_in_advance, advance_base
+from .helpers import out_in_advance, advance_base, PREVIOUS_BASE, NEXT_BASE, pitch_count
 
 
 class Event1(object):
     """
-    New Parsing class
+    New event parsing class. This will worry only with the current event string.
+    Any contextual information will be taken by the Game class (player_id, pitcher, etc).
+    The objective is to map everything that happened, by all players, for quick
+    reference.
     """
 
-
     def __init__(self):
+
         self.log = logging.getLogger(__name__)
         self.str = 'NP'
         self.play = {'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0, 'run': 0}
-        self.batting_lineup = {'1':'', '2':'','3':'', '4':'','5':'','6':'','7':'','8':'','9':''}
-        self.fielding_lineup = {'1':'', '2':'','3':'', '4':'','5':'','6':'','7':'','8':'','9':''}
-
+        self.advances={'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0,'run': 0}
 
     def _initialize_modifiers(self):
         self.modifiers = {
-        'out': 0, 'run': 0, 'bunt': 0, 'trajectory': '','location': '',
-        'errors':[], 'interference':'', 'review': '','foul': 0, 'force out': 0,
-        'throw':0, 'sacrifice': '', 'relay':0, 'other':[], 'courtesy':'','passes': ''
+        'out': 0,
+        'run': 0,
+        'bunt': 0,
+        'trajectory': '',
+        'location': '',
+        'interference':'',
+        'review': '',
+        'foul': 0,
+        'force out': 0,
+        'throw':0,
+        'sacrifice': '',
+        'relay':0,
+        'other':[],
+        'courtesy':'',
+        'passes': [],
+        'DP': False,
+        'TP': False,
         }
 
 
-    def _modifiers(self):
+    def _modifiers(self, modifiers):
         """
         """
         ### Play Modifier:
-        for mpm in self.mpm:
+        for mpm in modifiers:
             mpm = mpm.replace('#','').replace('-','').replace('+','')\
                     .replace('!','').replace('?','').upper()
 
             if re.findall('^[B]?[PUGFL]?DP$',mpm): #double play
-                self.modifiers['out'] = 2
+                #self.main_play['out'] = 2
+                self.modifiers['DP'] = True
                 self.modifiers['bunt'] = 1 if mpm[0]=='B' else 0
                 if self.modifiers['trajectory'] == '':
                     self.modifiers['trajectory'] = mpm[1] if mpm[1] in ['PGFL'] else ''
                     self.modifiers['trajectory'] = mpm[0] if mpm[0] in ['PGFL'] else ''
             elif re.findall('^[B]?[PUGFL]?TP$',mpm): #tripple play
-                self.modifiers['out'] = 3
+                #self.main_play['out'] = 3
+                self.modifiers['TP'] = True
+            elif re.findall('^U[1-9]+', mpm):
+                self.modifiers['passes'].append(mpm)
             elif re.findall('^[B]$',mpm): #tripple play
                 self.modifiers['bunt'] = 1
             elif re.findall('^COU[BFR]$',mpm): #courtesy batter , fielder, runner
@@ -62,11 +81,17 @@ class Event1(object):
                 self.modifiers['bunt'] = 1 if mpm[1]=='H' else 0 #sacrifice hit is a bunt
             elif re.findall('^[U]?[6]?R[0-9URNHBS]*(?:\(TH\))?$', mpm): #relay
                 self.modifiers['relay'] = 1
-                self.modifiers['passes'] = mpm
+                self.modifiers['passes'].append(mpm)
                 if re.findall('TH',mpm):
                     self.modifiers['throw'] = 1
             elif re.findall('^E[1-9]*$', mpm): #error on $
-                self.modifiers['errors'].append(mpm[1]) if len(mpm)>1 else ''
+                error = re.findall('^E[1-9]*$', mpm)
+                if 'TH' in mpm:
+                    self.stats['fielding'].append(['E(TH)', error[0][1]])
+                else:
+                    self.stats['fielding'].append(['E', error[0][1]])
+
+                #self.modifiers['errors'].append(mpm[1]) if len(mpm)>1 else ''
             elif mpm in ['AP','BOOT','IPHR','NDP','BR','IF','OBS','PASS','C','U','RNT']: #other #U for unkown
                 self.modifiers['other'].append(mpm)
             elif re.findall('^B?[PGFL][1-9MLRDXSF]?[1-9LRMXDSFW]*$',mpm):
@@ -84,88 +109,546 @@ class Event1(object):
                 self.log.debug('Event Not Known: {0}'.format(mpm))
 
 
-    def _describers(self):
-        ### Play describers:
-        pass
+    def _is_explicit(self, bfrom='B'):
+        for em in self.em:
+            if em[0][0]==bfrom:
+                #self.log.debug('{0} is explicit'.format(bfrom))
+                return True
+        #self.log.debug('{0} is not explicit'.format(bfrom))
+        return False
 
 
     def _advances(self):
         ### Explicit advances
-        self.advances={'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0,'run': 0}
 
         for loop, move in enumerate(self.em):
-            move = move[0]
+            #each element is a list
+            move = move[0] #--> retrieve string
+            bfrom = move[0]
+            bto = move[2]
             if re.findall('X', move):
-                self.advances = out_in_advance(self.advances, bfrom=move[0], bto=move[2])
+                #it could be on error or not
+                #if error on first describer, then call is the opposite
+                error = re.findall('E[1-9]',self.ad[loop][0]) if self.ad[loop] else None
+                if error:
+                    self.advances = advance_base(self.advances, bfrom=bfrom, bto=bto)
+
+                    ###########################   stats   ##############################
+                    #error describer
+                    error_modifier = self.am[loop][0][0] if self.am[loop][0] else ''
+                    if re.sub('[1-9U]','', error_modifier) == 'TH':
+                        self.stats['fielding'].append(['E(TH)', error[0][1]])
+                    else:
+                        self.stats['fielding'].append(['E', error[0][1]])
+
+                    #append pass sequence (for location purposes)
+                    passes = re.sub('[^0-9]','', error[0]+error_modifier)
+                    self.modifiers['passes'].append(passes) if passes else None
+
+                    if move[2] == 'H':
+                        run_describer = 'R'
+                        run_describer += '(UR)' if 'UR' in self.ad[loop] else ''
+                        run_describer += '(NR)' if 'NR' in self.ad[loop] else ''
+                        run_describer += '(RBI)' if 'RBI' in self.ad[loop] else ''
+                        run_describer += '(NORBI)' if 'NORBI' in self.ad[loop] else ''
+                        run_describer += '(TUR)' if 'TUR' in self.ad[loop] else ''
+
+                        self.stats['running'].append([run_describer,bfrom, bto])
+
+                    ###########################   end   ##############################
+
+
+                else:
+                    self.advances = out_in_advance(self.advances, bfrom=bfrom, bto=bto)
+
+                    ###########################   stats   ##############################
+                    PO = re.findall('[1-9U]$',self.ad[loop][0]) if self.ad[loop] else None
+                    if PO:
+                        self.stats['fielding'].append(['PO',PO[0]])
+
+                    As = re.findall('[1-9U]+', self.ad[loop][0]) if self.ad[loop] else None
+                    if As:
+                        As = As[0]
+                        for a in As:
+                            self.stats['fielding'].append(['A',a]) if a not in PO else None
+
+                    self.stats['running'].append(['PO',bfrom, bto])
+                    ###########################   end   ##############################
+                    passes = re.findall('[1-9U]+',self.ad[loop][0]) if self.ad[loop] else None
+                    #append pass sequence (for location purposes)
+                    self.modifiers['passes'].append(passes[0]) if passes else None
+
+                    #map other errors, if existing
+                    if len(self.ad[loop]) > 1:
+                        for loop2, describer in enumerate(self.ad[loop]):
+                            other_error = re.findall('[1-9]*E[1-9]',describer)
+                            if other_error:
+
+                                error_modifier = self.am[loop][loop2][0] if self.am[loop][loop2] else ''
+                                #print ('error modifier', error_modifier)
+                                if re.sub('[1-9U]','', error_modifier) == 'TH':
+                                    self.stats['fielding'].append(['E(TH)', other_error[0][-1]])
+                                else:
+                                    self.stats['fielding'].append(['E', other_error[0][-1]])
+
+                                #append pass sequence (for location purposes)
+                                passes = re.sub('[^0-9]','', other_error[0]+error_modifier)
+                                self.modifiers['passes'].append(passes) if passes else None
+
+
             elif re.findall('\-', move):
-                self.advances = advance_base(self.advances, bfrom=move[0], bto=move[2])
+                bfrom = move[0]
+                bto = move[2]
+                self.advances = advance_base(self.advances, bfrom=bfrom, bto=bto)
+                ###########################   stats   ##############################
+                if bto == 'H':
+                    run_describer = 'R'
+                    run_describer += '(UR)' if 'UR' in self.ad[loop] else ''
+                    run_describer += '(NR)' if 'NR' in self.ad[loop] else ''
+                    run_describer += '(RBI)' if 'RBI' in self.ad[loop] else ''
+                    run_describer += '(NORBI)' if 'NORBI' in self.ad[loop] else ''
+                    run_describer += '(TUR)' if 'TUR' in self.ad[loop] else ''
+
+                    self.stats['running'].append([run_describer,bfrom, bto])
+
+                error = re.findall('[1-9]*E[1-9]',self.ad[loop][0]) if self.ad[loop] else None
+                if error:
+                    error_modifier = self.am[loop][0][0] if self.am[loop][0] else ''
+                    if re.sub('[1-9U]','', error_modifier) == 'TH':
+                        self.stats['fielding'].append(['E(TH)', error[0][-1]])
+                    else:
+                        self.stats['fielding'].append(['E', error[0][-1]])
+
+                    #append pass sequence (for location purposes)
+                    passes = re.sub('[^0-9]','', error[0]+error_modifier)
+                    self.modifiers['passes'].append(passes) if passes else None
+
+                ###########################   end   ##############################
+
+                #map other errors, if existing
+                if len(self.ad[loop]) > 1:
+
+                    for loop2, describer in enumerate(self.ad[loop]):
+                        other_error = re.findall('[1-9]*E[1-9]',describer)
+                        if other_error:
+
+                            error_modifier = self.am[loop][loop2][0] if self.am[loop][loop2] else ''
+                            #print ('error modifier', error_modifier)
+                            if re.sub('[1-9U]','', error_modifier) == 'TH':
+                                self.stats['fielding'].append(['E(TH)', other_error[0][-1]])
+                            else:
+                                self.stats['fielding'].append(['E', other_error[0][-1]])
+
+                            #append pass sequence (for location purposes)
+                            passes = re.sub('[^0-9]','', other_error[0]+error_modifier)
+                            self.modifiers['passes'].append(passes) if passes else None
+
             else:
                 self.log.debug('Explicit move not found: {0}'.format(move))
 
 
-    def _main_play(self):
-        self.main_play={'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0,'run': 0, 'outcome':[]}
+    def _main_play(self, mp, mpm):
 
-        mp = self.mp[0].replace('#','').replace('!','').replace('?','')
         #mp = 'NP' if not mp or mp == '' else mp
 
-        if re.findall('^[1-9](?:[1-9]*(?:\([B123]\))?)*\+?\-?$', mp): # implicit B out
-            self.main_play =  out_in_advance(self.main_play)#at bat is out
+        if self.mp == '99': #error or unknown
+            pass
+
+        elif re.findall('^[1-9](?:[1-9]*(?:\([B123]\))?)*\+?\-?$', mp): # implicit B out or not
+            if 'FO' not in mpm:
+                self.main_play =  out_in_advance(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play#at bat is out
             for base_out in re.findall('(?:\([123]\))', mp): self.main_play = out_in_advance(self.main_play, bfrom=base_out[1]) #excluding at bat
+
+            ###########################   stats   ##############################
+            fielder1 = re.findall('^[1-9]$', mp) #flyball, not always present
+            fielders2 = re.findall('[1-9]\(', mp)#$$()$ play, with explicit outs
+            fielders2 = [x.replace('(','') for x in fielders2] if fielders2 else []
+            fielders3 = re.findall('^[1-9][1-9]+$', mp) #when its a sequence and out
+            fielders3 = [fielders3[0][-1]] if fielders3 else []
+            fielders4 = [mp[-1]] if re.findall('[1-9]$', mp) and 'GDP' in mpm  else [] #it was a Ground into Double Play
+
+            POs = fielder1 + fielders2 + fielders3 + fielders4
+
+            double_play = False
+            triple_play = False
+
+            if 'BGDP' in mpm or 'BPDP' in mpm or 'DP' in mpm or 'FDP'in mpm or 'GDP' in mpm or 'LDP' in mpm:
+                double_play = True
+
+            if 'BGTP' in mpm or 'BPTP' in mpm or 'TP' in mpm or 'FTP' in mpm or 'GTP' in mpm or 'LTP' in mpm:
+                triple_play = True
+
+            for po in POs:
+                self.stats['fielding'].append(['PO',po[0]])
+                self.stats['fielding'].append(['DP',po[0]]) if double_play else None
+                self.stats['fielding'].append(['TP',po[0]]) if triple_play else None
+
+            all_fielders_touched = re.sub(r'\([^)]*\)', '', mp)
+            for fielder in all_fielders_touched:
+                if fielder not in POs:
+                    self.stats['fielding'].append(['A',fielder])
+
+            self.stats['batting'].append(['SF',''])  if 'SF' in mpm else None
+            self.stats['batting'].append(['SH',''])  if 'SH' in mpm else None
+            self.stats['batting'].append(['GDP',''])  if 'GDP' in mpm else None
+
+            passes = re.sub('(?:\([^\)]+\))','',mp)
+            self.modifiers['passes'].append(passes)
+            ###########################   end   ##############################
+
         elif re.findall('^[1-9][1-9]*E[1-9]*$', mp): #error on out, B-1 implicit if not explicit
-            self.main_play = advance_base(self.main_play) #B-1 except if explicily moving on advances
+            self.main_play = advance_base(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play #B-1 except if explicily moving on advances
+
+            ###########################   stats   ##############################
+            error_fielder = re.findall('E[1-9]$', mp)[0]
+            self.stats['fielding'].append(['E',error_fielder[1]])
+            ###########################   end   ##############################
+
         elif re.findall('^CS[23H](?:\([1-9]+\))+', mp):##caught stealing (except errors):
-            for cs in mp.split(';'): self.main_play = out_in_advance(self.main_play, bto=cs[2])
+            for cs in mp.split(';'):
+                bto = cs[2]
+                bfrom = PREVIOUS_BASE[cs[2]]
+                self.main_play = out_in_advance(self.main_play, bto=cs[2])
+
+                ###########################   stats   ##############################
+                self.stats['running'].append(['CS',bfrom, bto])
+
+                PO = re.findall('[1-9]\)', cs)
+                if PO:
+                    PO = PO[0].replace(')','')
+                    self.stats['fielding'].append(['PO',PO[0]])
+
+                As = re.findall('(?:\([^\(]+\))', cs)
+                if As:
+                    As = As[0].replace('(','').replace(')','')
+                    for a in As:
+                        if a not in PO:
+                            self.stats['fielding'].append(['A',a])
+
+                passes = re.sub('CS[23H]','', cs).replace('(','').replace(')','').replace('E','')
+                if passes:
+                    self.modifiers['passes'].append(passes)
+                ###########################   end   ################################
+
         elif re.findall('^CS[23H](?:\([1-9]*E[1-9]+)+', mp): ## caught stealing errors
-            for cs in mp.split(';'): self.main_play = advance_base(self.main_play, bto=cs[2])
+            #the advance could also be explicit given the error, for more than one base.
+            for cs in mp.split(';'):
+                bto = cs[2]
+                bfrom = PREVIOUS_BASE[cs[2]]
+                self.main_play = advance_base(self.main_play, bto=bto) if not self._is_explicit(bfrom=bfrom) else self.main_play
+
+                ###########################   stats   ##############################
+                self.stats['running'].append(['CS(E)',bfrom, bto]) #caught stealing w error
+
+                As = re.findall('^(?:\([1-9]+E)+', cs)
+                if As:
+                    As = As[0].replace('E','').replace('(','')
+                    for a in As:
+                        self.stats['fielding'].append(['A',a])
+
+
+                error_fielder = re.findall('E[1-9]', cs)[0]
+                self.stats['fielding'].append(['E',error_fielder[1]])
+
+                passes = re.sub('CS[23H]','', cs).replace('(','').replace(')','').replace('E','')
+                if passes:
+                    self.modifiers['passes'].append(passes)
+                ###########################   end   ################################
+
+
         elif re.findall('^BK$', mp):# balk (batter remains but all other get one base)
-            pass
+
+            ###########################   stats   ##############################
+            self.stats['pitching'].append(['BK','1'])
+            ###########################   end   ################################
+
         elif re.findall('^D[0-9]*\??$', mp): #double
-            self.main_play = advance_base(self.main_play, bto='2',bfrom='B')
+            self.main_play = advance_base(self.main_play, bto='2',bfrom='B') if not self._is_explicit() else self.main_play
+
+            ###########################   stats   ##############################
+            self.stats['batting'].append(['2B',''])
+            self.stats['batting'].append(['H','']) #hit
+            self.stats['pitching'].append(['H','1'])
+
+            passes = re.findall('[0-9]', mp)
+            if passes:
+                self.modifiers['passes'].append(passes[0])
+            ###########################   end   ################################
+
         elif re.findall('^DGR[0-9]*$', mp): #ground rule double (two bases for everyone as ball went out after being in)
-            self.main_play = advance_base(self.main_play, bto='2',bfrom='B')
+            self.main_play = advance_base(self.main_play, bto='2',bfrom='B')  if not self._is_explicit() else self.main_play
+
+            ###########################   stats   ##############################
+            self.stats['batting'].append(['DGR',''])
+            self.stats['batting'].append(['H','']) #hit
+            self.stats['pitching'].append(['H','1'])
+
+            passes = re.findall('[0-9]+', mp)
+            if passes:
+                self.modifiers['passes'].append(passes[0])
+            ###########################   end   ################################
+
         elif re.findall('^DI$', mp): #defensive indifference
-            pass
-        elif re.findall('^E[1-9]\??$', mp): ## error allowing batter to get on base (B-1 implicit or not)
-            self.main_play = advance_base(self.main_play)
+
+            ###########################   stats   ##############################
+            for explicit_move in self.em:
+                bto = explicit_move[0][2]
+                bfrom = explicit_move[0][0]
+                self.stats['running'].append(['DI',bfrom, bto])
+            ###########################   end   ################################
+
+        elif re.findall('^E[1-9]+\??$', mp): ## error allowing batter to get on base (B-1 implicit or not)
+            self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
+
+            ###########################   stats   ##############################
+            error_fielder = re.findall('E[1-9]$', mp)[0]
+            if 'TH' in mpm: #throwing error
+                self.stats['fielding'].append(['E(TH)',error_fielder[1]])
+            else:
+                self.stats['fielding'].append(['E',error_fielder[1]])
+
+            passes = re.findall('[0-9]+', mp)
+            if passes:
+                self.modifiers['passes'].append(passes[0])
+            ###########################   end   ################################
+
         elif re.findall('^FC[1-9]?\??$',mp):# fielders choice (also implicit B-1)
-            self.main_play = advance_base(self.main_play)
+            self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
+
+            ###########################   stats   ##############################
+            self.stats['batting'].append(['FC',''])
+            if len(mp) > 2:
+                self.stats['fielding'].append(['FC',mp[2]])
+                self.modifiers['passes'].append(mp[2])
+            ###########################   end   ################################
+
         elif re.findall('^FLE[1-9]+$',mp): # error on foul fly play (error given to the play but no advances)
-            pass
+
+            ###########################   stats   ##############################
+            self.stats['fielding'].append(['FLE',mp[3]])
+            ###########################   end   ################################
+
         elif re.findall('^H[R]?[1-9]*[D]?$', mp): #home run
-            self.main_play = advance_base(self.main_play, bto='H',bfrom='B')
+            self.main_play = advance_base(self.main_play, bto='H',bfrom='B')  if not self._is_explicit() else self.main_play
+
+            ###########################   stats   ##############################
+            self.stats['batting'].append(['HR','']) #home run
+            self.stats['pitching'].append(['HR','1'])
+
+            self.stats['batting'].append(['H','']) #hit
+            self.stats['pitching'].append(['H','1'])
+
+            self.stats['batting'].append(['R','']) #run
+
+            if 'IPHR' in mpm:
+                self.stats['batting'].append(['IPHR',''])
+            ###########################   end   ################################
+
+
         elif re.findall('^HP$', mp): #hit by pitch
-            self.main_play = advance_base(self.main_play)
-        elif re.findall('^W',mp): # walk
-            self.main_play = advance_base(self.main_play)
+            self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
+
+            ###########################   stats   ##############################
+            self.stats['batting'].append(['HBP','']) #hit by pitch
+            ###########################   end   ################################
+
+        elif re.findall('^W[^P]',mp) or mp=='W': # walk
+            self.main_play = advance_base(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play
+
+            ###########################   stats   ##############################
+            self.stats['batting'].append(['BB','']) #base on balls
+            self.stats['pitching'].append(['BB','1']) #base on balls
+            ###########################   end   ################################
+
         elif re.findall('^I[W]?',mp): # intentional walk
-            self.main_play = advance_base(self.main_play)
+            self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
+
+            ###########################   stats   ##############################
+            self.stats['batting'].append(['IBB','']) #base on balls
+            self.stats['pitching'].append(['IBB','1']) #base on balls
+            ###########################   end   ################################
+
         elif re.findall('^K',mp): #strikeout
-            self.main_play = out_in_advance(self.main_play)
+            self.main_play = out_in_advance(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play
+
+            ###########################   stats   ##############################
+            self.stats['batting'].append(['K','']) #strikeout
+            self.stats['fielding'].append(['PO','2']) #strikeout
+            self.stats['pitching'].append(['K','1']) #strikeout
+            self.stats['batting'].append(['SF',''])  if 'SF' in mpm else None
+            self.stats['batting'].append(['SH',''])  if 'SH' in mpm else None
+            ###########################   end   ################################
+
         elif re.findall('^NP$',mp): #no play
             pass
+
         elif re.findall('^(?:OA)?(?:99)?$',mp): #unkown play
             pass
+
         elif re.findall('^PB$', mp): #passed ball
-            self.main_play = advance_base(self.main_play)
+            self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
+
+            ###########################   stats   ##############################
+            self.stats['fielding'].append(['PB','2'])
+            ###########################   end   ################################
+
         elif re.findall('^PO[123](?:\([1-9]+\))',mp): #picked off of base (without error)
-            self.main_play = out_in_advance(self.main_play, bfrom=mp[2])
+            bfrom = mp[2]
+            bto = NEXT_BASE[mp[2]]
+
+            self.main_play = out_in_advance(self.main_play, bfrom=bfrom)  if not self._is_explicit(bfrom) else self.main_play
+
+            ###########################   stats   ##############################
+            PO = re.findall('[1-9]\)', mp)
+            if PO:
+                PO = PO[0].replace(')','')
+                self.stats['fielding'].append(['PO',PO[0]])
+
+            As = re.findall('(?:\([^\(]+\))', mp)
+            if As:
+                As = As[0].replace('(','').replace(')','')
+                for a in As:
+                    if a not in PO:
+                        self.stats['fielding'].append(['A',a])
+
+            passes = re.sub('PO[123]\(','', mp).replace(')','').replace('E','')
+            self.modifiers['passes'].append(passes)
+
+
+            self.stats['running'].append(['PO',bfrom, bfrom]) #player never moved base
+            ###########################   end   ################################
+
         elif re.findall('^PO[123](?:\([1-9]*E[1-9]+)',mp): #pick off with pass error (no out nothing implicit)
-            pass
+
+            ###########################   stats   ##############################
+            bfrom = mp[2]
+            bto = NEXT_BASE[mp[2]]
+            self.stats['running'].append(['PO(E)',bfrom, bto])
+            As = re.findall('^(?:\([1-9]+E)+', mp) #assists to other players
+            if As:
+                As = As[0].replace('E','').replace('(','')
+                for a in As:
+                    self.stats['fielding'].append(['A',a])
+
+            passes = re.sub('PO[123]\(','', mp).replace(')','').replace('E','')
+            self.modifiers['passes'].append(passes)
+
+            error_fielder = re.findall('E[1-9]', mp)[0]
+            self.stats['fielding'].append(['E',error_fielder[1]])
+            ###########################   end   ################################
+
         elif re.findall('^POCS[23H](?:\([1-9]+\))',mp): #POCS%($$) picked off off base % (2, 3 or H) with the runner charged with a caught stealing
-            for split in mp.split(';'): self.main_play = out_in_advance(self.main_play, bto=split[2]) if split[0:2] == 'CS' else  out_in_advance( self.main_play, bto=split[4])  #there are CS events together with POCS
+
+            for split in mp.split(';'):
+                if split[0:2] == 'CS':
+                    bto = split[2]
+                    bfrom = PREVIOUS_BASE[split[2]]
+                    self.main_play = out_in_advance(self.main_play, bto=bto) if not self._is_explicit(bfrom) else self.main_play
+                    self.stats['running'].append(['CS',bfrom, bto])
+                else:
+                    bto = split[4]
+                    bfrom = PREVIOUS_BASE[split[4]]
+                    out_in_advance( self.main_play, bto=bto) if not self._is_explicit(bfrom) else self.main_play  #there are CS events together with POCS
+                    self.stats['running'].append(['CS',bfrom, bto])
+
+                ###########################   stats   ##############################
+
+                PO = re.findall('[1-9]\)', split)
+                if PO:
+                    PO = PO[0].replace(')','')
+                    self.stats['fielding'].append(['PO',PO[0]])
+
+                As = re.findall('(?:\([^\(]+\))', split)
+                if As:
+                    As = As[0].replace('(','').replace(')','')
+                    for a in As:
+                        if a not in PO:
+                            self.stats['fielding'].append(['A',a])
+
+                passes = re.sub('POCS[123]\(','', mp).replace(')','').replace('E','')
+                self.modifiers['passes'].append(passes)
+                ###########################   end   ################################
+
+
         elif re.findall('^POCS[23H](?:\([1-9]*E[1-9]+)',mp):#POCS errors
-            pass
+
+            ###########################   stats   ##############################
+            bto = mp[4]
+            bfrom = PREVIOUS_BASE[mp[4]]
+            self.stats['running'].append(['CS(E)',bfrom, bto])
+
+            As = re.findall('^(?:\([1-9]+E)+', mp) #assists to other players
+            if As:
+                As = As[0].replace('E','').replace('(','')
+                for a in As:
+                    self.stats['fielding'].append(['A',a])
+
+            error_fielder = re.findall('E[1-9]', mp)[0]
+            self.stats['fielding'].append(['E',error_fielder[1]])
+
+            passes = re.sub('POCS[123]\(','', mp).replace(')','').replace('E','')
+            self.modifiers['passes'].append(passes)
+            ###########################   end   ################################
+
         elif re.findall('^S[0-9]*\??\+?$',mp): #single
-            self.main_play = advance_base(self.main_play)
+            self.main_play = advance_base(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play
+
+            ###########################   stats   ##############################
+            self.stats['batting'].append(['1B','']) #single
+            self.stats['batting'].append(['H','']) #hit
+            self.stats['pitching'].append(['H','1'])
+
+            passes = re.findall('[0-9]', mp)
+            if passes:
+                self.modifiers['passes'].append(passes[0])
+            ###########################   end   ################################
+
         elif re.findall('^SB[23H]',mp): #stolen base
-            for sb in mp.split(';'): self.main_play = advance_base(self.main_play, bto=sb[2]) if sb[0:2] == 'SB' else self.main_play
+            for sb in mp.split(';'):
+                if sb[0:2] == 'SB':
+                    bto = sb[2]
+                    bfrom = PREVIOUS_BASE[sb[2]]
+                    self.main_play = advance_base(self.main_play, bto=sb[2]) if not self._is_explicit(bfrom) else self.main_play
+
+                    ###########################   stats   ##############################
+                    self.stats['running'].append(['SB',bfrom, bto])
+                    self.stats['running'].append(['R',bfrom, bto]) if sb[2] == 'H' else None
+                    ###########################   end   ################################
+
         elif re.findall('^T[0-9]*\??\+?$',mp): #triple
-            self.main_play = advance_base(self.main_play, bfrom='B', bto='3')
+            self.main_play = advance_base(self.main_play, bfrom='B', bto='3')  if not self._is_explicit() else self.main_play
+
+            ###########################   stats   ##############################
+            self.stats['batting'].append(['3B',''])
+            self.stats['batting'].append(['H','']) #hit
+
+            passes = re.findall('[0-9]', mp)
+            if passes:
+                self.modifiers['passes'].append(passes[0])
+            ###########################   end   ################################
+
         elif re.findall('^WP', mp): ## wild pitch - base runner advances
-            self.main_play = advance_base(self.main_play)
-        elif re.findall('^C$', mp): #usualy 3rd strikeout but not always clear
-            pass
+            self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
+
+            ###########################   stats   ##############################
+            self.stats['pitching'].append(['WP','1'])
+            ###########################   end   ################################
+
+        elif re.findall('^C$', mp): #catcher interference or pitcher or first baseman
+            if 'E1' in mpm :
+                ###########################   stats   ##############################
+                self.stats['fielding'].append(['E','1'])
+                ###########################   end   ################################
+            elif 'E2' in mpm:
+                ###########################   stats   ##############################
+                self.stats['fielding'].append(['CI','2'])
+                ###########################   end   ################################
+            elif 'E3' in mpm:
+                ###########################   stats   ##############################
+                self.stats['fielding'].append(['E','3'])
+                ###########################   end   ################################
+
+
         else:
             self.log.debug('Main event not known: {0}'.format(mp))
             #raise EventNotFoundError('Event Not Known', mp)
@@ -238,15 +721,57 @@ class Event1(object):
         #print ('\nam:\t', self.am)
 
 
-    def parse_event(self):
-        """
-        """
-        self._split_plays()
+    def final_moves(self):
+        #after errors, implicits and explicit moves
+        #self.play = {'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0,'run': 0}
+        #self.play = self.advances
 
+        #fix main_play for double plays. If it is not evident
+
+        for key, value in self.main_play.items():
+            if key in ['out', 'run','H']:
+                self.advances[key] += value
+            else: #bases
+                self.advances[key] = value
+
+
+    def decipher(self):
+        """
+        """
+        #self.advances={'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0,'run': 0}
+        #initialize this play
+        self.stats = {
+            'batting': [], #event, player (left blank as batter is contextual)
+            'fielding': [], #event, event
+            'running':[], #event, base_from, base_to
+            'pitching':[], #event, player
+            }
+
+        self.main_play={'out': 0,'run': 0}
         self._initialize_modifiers()
-        self._modifiers()
-        self._main_play()
+
+        #take the pieces of hte play (main play, secondary, advances, modifiers, describers)
+        self._split_plays()
+        mp = self.mp[0].replace('#','').replace('!','').replace('?','')
+        mpm= self.mpm
+
+        #read advance first (Explicit moves)
         self._advances()
+
+        #read main play
+        self._main_play(mp = mp, mpm=mpm)
+        self._modifiers(modifiers = self.mpm)
+
+        #read secondary play if there
+        if self.sp:
+            sp = self.sp[0].replace('#','').replace('!','').replace('?','')
+            spm = self.spm
+            self._main_play(mp = sp, mpm=spm)
+            self._modifiers(modifiers= self.spm)
+
+        #combine explicit + implicit moves
+        self.final_moves()
+
 
 
 class Event(object):

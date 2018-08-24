@@ -1,0 +1,73 @@
+Batting Statistics
+
+1B – Single: hits on which the batter reaches first base safely without the contribution of a fielding error.
+2B – Double: hits on which the batter reaches second base safely without the contribution of a fielding error.
+3B – Triple: hits on which the batter reaches third base safely without the contribution of a fielding error.
+AB – At bat: Plate appearances, not including bases on balls, being hit by pitch, sacrifices, interference, or obstruction.
+BB – Base on balls (also called a "walk"): hitter not swinging at four pitches called out of the strike zone and awarded first base.
+FC – Fielder's choice: times reaching base safely because a fielder chose to try for an out on another runner
+GDP or GIDP – Ground into double play: number of ground balls hit that became double plays
+H – Hits: times reached base because of a batted, fair ball without error by the defense
+HBP – Hit by pitch: times touched by a pitch and awarded first base as a result
+HR – Home runs: hits on which the batter successfully touched all four bases, without the contribution of a fielding error.
+ITPHR – Inside-the-park home run: hits on which the batter successfully touched all four bases, without the contribution of a fielding error or the ball going outside the ball park.
+IBB – Intentional base on balls: times awarded first base on balls (see BB above) deliberately thrown by the pitcher. Also known as IW (intentional walk).
+K – Strike out (also abbreviated SO): number of times that a third strike is taken or swung at and missed, or bunted foul. Catcher must catch the third strike or batter may attempt to run to first base.
+LOB – Left on base: number of runners neither out nor scored at the end of an inning.
+PA – Plate appearance: number of completed batting appearances
+R – Runs scored: number of times a player crosses home plate
+RBI – Run batted in: number of runners who score due to a batters' action, except when batter grounded into double play or reached on an error
+ROE - Reach on Error: Advance to a base due to a fielding error.
+SF – Sacrifice fly: Fly balls hit to the outfield which although caught for an out, allow a baserunner to advance
+SH – Sacrifice hit: number of sacrifice bunts which allow runners to advance on the basepaths
+
+
+Baserunning statistics
+
+SB – Stolen base: number of bases advanced by the runner while the ball is in the possession of the defense.
+CS – Caught stealing: times tagged out while attempting to steal a base
+DI – Defensive Indifference: if the catcher does not attempt to throw out a runner (usually because the base would be insignificant), the runner is not awarded a steal. Scored as a fielder's choice.
+R – Runs scored: times reached home plate legally and safely
+
+
+Pitching statistics
+
+BB – Base on balls (also called a "walk"): times pitching four balls, allowing the batter to take first base
+BF – Total batters faced: opponent team's total plate appearances
+BK – Balk: number of times pitcher commits an illegal pitching action while in contact with the pitching rubber as judged by umpire, resulting in baserunners advancing one base
+**BS – Blown save: number of times entering the game in a save situation, and being charged the run (earned or not) which eliminates his team's lead
+CG – Complete game: number of games where player was the only pitcher for his team
+ER – Earned run: number of runs that did not occur as a result of errors or passed balls
+FPOM – First pitch outs made: Number of outs earned where the batter ground or flies out on the first pitch.
+G – Games (AKA "appearances"): number of times a pitcher pitches in a season
+GF – Games finished: number of games pitched where player was the final pitcher for his team as a relief pitcher
+**GIDP – Double plays induced: number of double play groundouts induced
+GIR - Games in relief: games as a non starting pitcher
+GS – Starts: number of games pitched where player was the first pitcher for his team
+H (or HA) – Hits allowed: total hits allowed
+**HLD (or H) – Hold: number of games entered in a save situation, recorded at least one out, did not surrender the lead, and did not complete the game
+HR (or HRA) – Home runs allowed: total home runs allowed
+IBB – Intentional base on balls allowed
+IR – Inherited runners: number of runners on base when the pitcher enters the game
+K (or SO) – Strikeout: number of batters who received strike three
+LOB% – Left-on-base percentage: LOB% represents the percentage of baserunners a pitcher does not allow to score. LOB% tends to regress toward 70–72% over time, so unusually high or low percentages could indicate that pitcher's ERA could be expected to rise or lower in the future. An occasional exception to this logic is a pitcher with a very high strikeout rate.[3]
+PIT (or NP) – Pitches thrown (Pitch count)
+**RRA – Relief run average: A function of how many inherited base runners a relief pitcher allowed to score.
+**SV – Save: number of games where the pitcher enters a game led by the pitcher's team, finishes the game without surrendering the lead, is not the winning pitcher, and either (a) the lead was three runs or fewer when the pitcher entered the game; (b) the potential tying run was on base, at bat, or on deck; or (c) the pitcher pitched three or more innings
+**SVO – Save opportunity: When a pitcher 1) enters the game with a lead of three or fewer runs and pitches at least one inning, 2) enters the game with the potential tying run on base, at bat, or on deck, or 3) pitches three or more innings with a lead and is credited with a save by the official scorer
+**W – Win: number of games where pitcher was pitching while his team took the lead and went on to win, also the starter needs to pitch at least 5 innings of work (also related: winning percentage)
+**whiff rate: a term, usually used in reference to pitchers, that divides the number of pitches swung at and missed by the total number of swings in a given sample. If a pitcher throws 100 pitches at which batters swing, and the batters fail to make contact on 26 of them, the pitcher's whiff rate is 26%.
+WP – Wild pitches: charged when a pitch is too high, low, or wide of home plate for the catcher to field, thereby allowing one or more runners to advance or score
+
+
+Fielding statistics
+
+A – Assists: number of outs recorded on a play where a fielder touched the ball, except if such touching is the putout
+CI – Catcher's Interference (e.g., catcher makes contact with bat)
+DP – Double plays: one for each double play during which the fielder recorded a putout or an assist.
+E – Errors: number of times a fielder fails to make a play he should have made with common effort, and the offense benefits as a result
+INN – Innings: number of innings that a player is at one certain position
+PB – Passed ball: charged to the catcher when the ball is dropped and one or more runners advance
+PO – Putout: number of times the fielder tags, forces, or appeals a runner and he is called out as a result
+**TC – Total chances: assists plus putouts plus errors
+TP – Triple play: one for each triple play during which the fielder recorded a putout or an assist

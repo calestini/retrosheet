@@ -6,6 +6,7 @@ import logging.config
 from .event import Event, Event1
 from .parser import Retrosheet
 from .version import __version__
+from .game import Parse_Files
 
 
 def setup_logging(default_path='logging.json', default_level=logging.INFO, env_key='LOG_CFG'):

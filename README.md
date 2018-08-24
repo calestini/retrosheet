@@ -5,22 +5,15 @@
 
 A project to parse [retrosheet](https://www.retrosheet.org) baseball data in python. All data contained at Retrosheet site is copyright © 1996-2003 by Retrosheet. All Rights Reserved.
 
- - Documentation on the datasets can be found [here](https://www.retrosheet.org/datause.txt)
+## Motivation
 
- - Information about the event files can be found [here](https://www.retrosheet.org/eventfile.htm)
-
- - Hit location diagram are [here](https://www.retrosheet.org/location.htm)
-
- - Link to downloads [here](https://www.retrosheet.org/game.htm)
-
-Collaborators:
-  - [Cathy](https://github.com/cathyhax)
-  - [Lucas](https://github.com/calestini)
-
-Other resources:
-  - [Glossary of Baseball](https://en.wikipedia.org/wiki/Glossary_of_baseball)
+The motivation behind this project is to enhance python-based baseball analytics from data collection to advanced predictive modeling techniques.
 
 ---
+## Before you start
+
+If you are looking for a complete solution out of the box, check [Chadwick Bureau](http://chadwick-bureau.com/)
+If you are looking for a quick way to check stats, see [Baseball-Reference](https://www.baseball-reference.com)
 
 ## Getting Started
 
@@ -92,12 +85,19 @@ Runs: 3	Outs: 3
 ```
 
 ---
-## Useful Notes
+## Useful Links / References
 
   - Our own summary of Retrosheet terminology can be found [here](retrosheet/info.txt)
   - For the events file, the pitches field sometimes repeats over the following role, whenever there was a play (CS, SB, etc.). In these cases, the code needs to remove the duplication.
+  - Main baseball statistics --> [here](https://en.wikipedia.org/wiki/Baseball_statistics)
+  - Hit location diagram are [here](https://www.retrosheet.org/location.htm)
+  - Link to downloads [here](https://www.retrosheet.org/game.htm)
+  - [Glossary of Baseball](https://en.wikipedia.org/wiki/Glossary_of_baseball)
+  - Information about the event files can be found [here](https://www.retrosheet.org/eventfile.htm)
+  - Documentation on the datasets can be found [here](https://www.retrosheet.org/datause.txt)
+  - Putouts and Assists [rules](https://baseballscoring.wordpress.com/site-index/putouts-and-assists/)
 
-## Notation questions
+## Notation Questions
 
   - Interesting event play sequence: *'S9.3-H(TUR);2-H(TUR);1-3;BX2(93)'*. It is a single, but the baserunner tries to go for 2B and is out.
 
@@ -106,14 +106,12 @@ Runs: 3	Outs: 3
   - What does 'BF' in '1/BF' stand for? bunt fly?
   - Why some specific codes for modifier are 2R / 2RF / 8RM / 8RS / 8RXD / L9Ls / RNT ?
 
-## Missing Parsing
+## TODO
 
   - Plays:
-    - Missing trajectory, errors, RBIs and player-related stats.
-    - Need to test if all innings end in 3 out. Ran some spot checks and it seems to work.
-  - Pich counts
-    - Need to spot check and compare to official statistics
-  - Other files
+    - Test primary stats
+    - Test innings ending in 3-out
+  - Parse other files
     - Playoff files
     - Additional files
     - Player / [Parks files](https://www.retrosheet.org/parkcode.txt)
