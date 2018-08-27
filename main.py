@@ -12,4 +12,4 @@ if __name__ == '__main__':
 
     rs = Retrosheet()
     rs.get_data(yearFrom=args.year_start, yearTo=args.year_end)
-    rs.save_csv(path='')
+    rs.save_csv(path_str='')

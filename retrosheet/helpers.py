@@ -4,6 +4,21 @@ import sys
 PREVIOUS_BASE  = {'H':'3','3':'2','2':'1','1':'B'}
 NEXT_BASE  = {'B':'1','1':'2','2':'3','3':'H'}
 
+def move_base(bases_dict, bfrom, bto):
+    if bto=='H':
+        bases_dict[bto].append(bases_dict[bfrom])
+        bases_dict[bfrom] = None
+        return bases_dict
+    bases_dict[bto] = bases_dict[bfrom]
+    bases_dict[bfrom] = None
+    return bases_dict
+
+
+def leave_base(bases_dict, bfrom):
+    bases_dict[bfrom] = None
+    return bases_dict
+
+
 def pitch_count(string, current_count):
     """
     For now it is including pickoffs

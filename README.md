@@ -1,13 +1,13 @@
 # retrosheet
 
-[![Build Status](https://travis-ci.org/calestini/retrosheet.svg?branch=master)](https://travis-ci.org/calestini/retrosheet) [![codecov](https://codecov.io/gh/calestini/retrosheet/branch/master/graph/badge.svg)](https://codecov.io/gh/calestini/retrosheet) [![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)](https://www.python.org/downloads/release/python-360/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://travis-ci.org/calestini/retrosheet.svg?branch=master)](https://travis-ci.org/calestini/retrosheet) [![codecov](https://codecov.io/gh/calestini/retrosheet/branch/master/graph/badge.svg)](https://codecov.io/gh/calestini/retrosheet) [![Python 3.6](https://img.shields.io/badge/python-3.6-blue.svg)](https://www.python.org/downloads/release/python-360/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Version: 0.1.0](https://img.shields.io/badge/version-0.1.0-green.svg)](https://img.shields.io/badge/version-0.1.0-green.svg)
 
 
 A project to parse [retrosheet](https://www.retrosheet.org) baseball data in python. All data contained at Retrosheet site is copyright © 1996-2003 by Retrosheet. All Rights Reserved.
 
 ## Motivation
 
-The motivation behind this project is to enhance python-based baseball analytics from data collection to advanced predictive modeling techniques.
+The motivation behind this project is to enhance python-based baseball analytics, from data collection to advanced predictive modeling techniques.
 
 ---
 ## Before you start
@@ -26,9 +26,9 @@ git clone https://github.com/calestini/retrosheet.git
 
 ### Downloading historical data to csv
 
-**Note: This package is a work in progress, and the files are not yet fully parsed.**
+**Note: This package is a work in progress, and the files are not yet fully parsed, and statistics not fully validated.**
 
-The code below will load data from 1921 to 2017. Be careful as it will take some time to download it all (~10 min).
+The code below will save data from 1921 to 2017 in your machine. Be careful as it will take some time to download it all (~10 min if the datasets for each year are locally stored).
 
 ```python
 from retrosheet import Retrosheet
@@ -40,49 +40,17 @@ rs.save_csv()
 >>> [========------------------] 33.5% ... 1959
 ```
 
-### Parsing plays
+## Files it will download / create:
 
-We can also visually check all plays for a sequence (without statistics for now). The code below looks for all plays in an inning, printing the diamond for each play/event. The diamond separates H and B location to make it easier to see how many runs happened in the sequence.
-
-
-```python
-from retrosheet import Event
-
-event_sequence = [
-'S9','S7.1-2','34/SH.2-3;1-2','S9.3-H;2-3',
-'W.1-2''S8.3-H;2-H;1X3(8254)','4']
-
-  play = {'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0, 'run': 0}
-  event = Event() #start event with no play
-
-  print ('Beginning of the play:\n')
-  for string in event_sequence:
-      event.str = string
-      event.decipher()
-      event._print_diamond()
-```
-```bash
-Play: S9
-|---------[ 0 ]-----------|
-|-------------------------|
-|----[ 0 ]------[ 1 ]-----|
-|-------------------------|
-|------[ 0 ]--[ 0 ]-------|
-|-------------------------|
-Runs: 0	Outs: 0
-
-(...)
-
-Play: 4
-|---------[ 0 ]-----------|
-|-------------------------|
-|----[ 0 ]------[ 1 ]-----|
-|-------------------------|
-|------[ 3 ]--[ 0 ]-------|
-|-------------------------|
-Runs: 3	Outs: 3
-
-```
+  - plays.csv
+  - teams.csv
+  - rosters.csv
+  - lineup.csv
+  - pitching.csv
+  - fielding.csv
+  - batting.csv
+  - running.csv
+  - info.csv
 
 ---
 ## Useful Links / References
@@ -97,9 +65,6 @@ Runs: 3	Outs: 3
   - Documentation on the datasets can be found [here](https://www.retrosheet.org/datause.txt)
   - Putouts and Assists [rules](https://baseballscoring.wordpress.com/site-index/putouts-and-assists/)
 
-## Notation Questions
-
-  - Interesting event play sequence: *'S9.3-H(TUR);2-H(TUR);1-3;BX2(93)'*. It is a single, but the baserunner tries to go for 2B and is out.
 
 ### Play Field in Event File:
 
@@ -108,10 +73,14 @@ Runs: 3	Outs: 3
 
 ## TODO
 
-  - Plays:
-    - Test primary stats
-    - Test innings ending in 3-out
-  - Parse other files
-    - Playoff files
-    - Additional files
-    - Player / [Parks files](https://www.retrosheet.org/parkcode.txt)
+- [ ] Finish parsing pitches
+- [ ] Clean-up code and logic
+- [ ] Test primary stats
+- [X] Test innings ending in 3 outs
+- [ ] Playoff files
+- [ ] [Parks files](https://www.retrosheet.org/parkcode.txt)
+- [ ] Player files
+- [ ] Create sql export option
+- [ ] Aggregate more advanced metrics
+- [ ] Map out location
+- [ ] Add additional data if possible
