@@ -6,6 +6,7 @@ from io import BytesIO
 from zipfile import ZipFile
 from collections import OrderedDict
 import pandas as pd
+from urllib.request import urlopen
 
 from .helpers import pitch_count, progress
 from .version import __version__
@@ -194,7 +195,7 @@ class parse_game(parse_row):
             self.game[self.row_id] = self.row_data[0]
             self.has_started = True
         elif self.row_id == 'info':
-            self.game[self.row_id].append([self.game['id']]+self.row_data)
+            self.game[self.row_id].append([self.game['id'],self.row_values[1], self.row_values[2]])
         elif self.row_id == 'data':
             self.has_finished=True
             self.game['meta']['events'] = self.location + 1 #0 index
