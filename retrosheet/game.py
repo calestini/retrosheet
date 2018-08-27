@@ -363,13 +363,9 @@ class parse_files(parse_games):
     def save_csv(self, path_str=''):
         """save dataframes to csv
         """
+
         if path_str:
             path_str + '/'  if path_str[-1] != '/' else path_str
-
-        try:
-            self.plays.to_csv('{0}plays.csv'.format(path_str), index=False)
-        except:
-            self.to_df()
 
         self.plays.to_csv('{0}plays.csv'.format(path_str), index=False)
         self.info.to_csv('{0}info.csv'.format(path_str), index=False)
