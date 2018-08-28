@@ -11,6 +11,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     rs = Retrosheet()
+    rs.batch_parse(yearFrom=args.year_start, yearTo=args.year_end, batchsize=10)
+    
+    '''
     rs.get_data(yearFrom=args.year_start, yearTo=args.year_end)
     rs.to_df()
     rs.save_csv(path_str='')
+    '''

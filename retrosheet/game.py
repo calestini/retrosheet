@@ -7,6 +7,7 @@ from zipfile import ZipFile
 from collections import OrderedDict
 import pandas as pd
 from urllib.request import urlopen
+import os.path
 
 from .helpers import pitch_count, progress
 from .version import __version__
@@ -297,6 +298,8 @@ class parse_files(parse_games):
 
 
     def get_data(self, yearFrom = None, yearTo = None):
+        """
+        """
         yearTo = yearTo if yearTo else '2017'
         yearFrom = yearFrom if yearFrom else yearTo
 
@@ -306,7 +309,7 @@ class parse_files(parse_games):
             self.filename = '{0}eve{1}'.format(year, self.extension)
             self.read_files()
 
-        progress(1,1,'Completed')
+        progress(1,1,'Completed {0}-{1}'.format(yearFrom, yearTo))
         return True
 
 
@@ -342,7 +345,7 @@ class parse_files(parse_games):
 
         self.plays = pd.DataFrame(plays)
         self.info = pd.DataFrame(infos, columns = ['game_id', 'var', 'value'])
-        self.info = self.info[~self.info.duplicated(subset=['game_id','var'], keep='last')].pivot('game_id','var','value').reset_index()
+        #self.info = self.info[~self.info.duplicated(subset=['game_id','var'], keep='last')].pivot('game_id','var','value').reset_index()
 
         self.lineup = pd.DataFrame(lineups)
         self.fielding = pd.DataFrame(fieldings, columns = ['game_id','order','stat','player_id'])
@@ -361,21 +364,32 @@ class parse_files(parse_games):
         return True
 
 
-    def save_csv(self, path_str=''):
+    def save_csv(self, path_str='', append=True):
         """save dataframes to csv
+            append = True for large downloads
         """
-
         if path_str:
             path_str + '/'  if path_str[-1] != '/' else path_str
 
-        self.plays.to_csv('{0}plays.csv'.format(path_str), index=False)
-        self.info.to_csv('{0}info.csv'.format(path_str), index=False)
-        self.lineup.to_csv('{0}lineup.csv'.format(path_str), index=False)
-        self.fielding.to_csv('{0}fielding.csv'.format(path_str), index=False)
-        self.pitching.to_csv('{0}pitching.csv'.format(path_str), index=False)
-        self.batting.to_csv('{0}batting.csv'.format(path_str), index=False)
-        self.running.to_csv('{0}running.csv'.format(path_str), index=False)
-        self.rosters.to_csv('{0}rosters.csv'.format(path_str), index=False)
-        self.teams.to_csv('{0}teams.csv'.format(path_str), index=False)
+        datasets = {
+            'plays': self.plays,
+            'info': self.info,
+            'lineup': self.lineup,
+            'fielding': self.fielding,
+            'pitching': self.pitching,
+            'batting': self.batting,
+            'running': self.running,
+            'rosters': self.rosters,
+            'teams': self.teams,
+        }
+
+        for key, dataset in datasets.items():
+            filename = path_str + key + '.csv'
+            if not os.path.isfile(filename):
+                dataset.to_csv(filename, mode='w', index=False, header=True)
+            elif os.path.isfile(filename) and append==True:
+                dataset.to_csv(filename, mode='a', index=False, header=False)
+            else:
+                dataset.to_csv(filename, mode='w', index=False, header=True)
 
         return True

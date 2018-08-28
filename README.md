@@ -28,16 +28,24 @@ git clone https://github.com/calestini/retrosheet.git
 
 **Note: This package is a work in progress, and the files are not yet fully parsed, and statistics not fully validated.**
 
-The code below will save data from 1921 to 2017 in your machine. Be careful as it will take some time to download it all (~10 min if the datasets for each year are locally stored).
+The code below will save data from 1921 to 2017 in your machine. Be careful as it will take some time to download it all (10min with a decent machine and decent internet connection). Final datasets add up to ~ 3GB
 
 ```python
 from retrosheet import Retrosheet
 rs = Retrosheet()
-rs.get_data(yearFrom=1921, yearTo=2017)
-rs.save_csv()
+rs.batch_parse(yearFrom=1921, yearTo=2017, batchsize=10) #10 files at a time
 ```
 ```bash
->>> [========------------------] 33.5% ... 1959
+[========================================] 100.0% ... Completed 1921-1930
+[========================================] 100.0% ... Completed 1931-1940
+[========================================] 100.0% ... Completed 1941-1950
+[========================================] 100.0% ... Completed 1951-1960
+[========================================] 100.0% ... Completed 1961-1970
+[========================================] 100.0% ... Completed 1971-1980
+[========================================] 100.0% ... Completed 1981-1990
+[========================================] 100.0% ... Completed 1991-2000
+[========================================] 100.0% ... Completed 2001-2010
+[========================================] 100.0% ... Completed 2011-2017
 ```
 
 ## Files it will download / create:
