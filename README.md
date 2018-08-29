@@ -5,6 +5,8 @@
 
 A project to parse [retrosheet](https://www.retrosheet.org) baseball data in python. All data contained at Retrosheet site is copyright © 1996-2003 by Retrosheet. All Rights Reserved.
 
+  _The information used here was obtained free of charge from and is copyrighted by Retrosheet.  Interested parties may contact Retrosheet at "www.retrosheet.org"_
+
 ## Motivation
 
 The motivation behind this project is to enhance python-based baseball analytics, from data collection to advanced predictive modeling techniques.
@@ -14,6 +16,7 @@ The motivation behind this project is to enhance python-based baseball analytics
 
 If you are looking for a complete solution out of the box, check [Chadwick Bureau](http://chadwick-bureau.com/)
 If you are looking for a quick way to check stats, see [Baseball-Reference](https://www.baseball-reference.com)
+If you want a web-scrapping solution, check (pybaseball)[https://github.com/jldbc/pybaseball]
 
 ## Getting Started
 
@@ -83,7 +86,7 @@ rs.batch_parse(yearFrom=1921, yearTo=2017, batchsize=10) #10 files at a time
 
 - [ ] Finish parsing pitches
 - [ ] Clean-up code and logic
-- [ ] Test primary stats
+- [ ] Test primary stats with [game logs](https://www.retrosheet.org/gamelogs/)
 - [X] Test innings ending in 3 outs
 - [ ] Playoff files
 - [ ] [Parks files](https://www.retrosheet.org/parkcode.txt)
@@ -92,6 +95,8 @@ rs.batch_parse(yearFrom=1921, yearTo=2017, batchsize=10) #10 files at a time
 - [ ] Aggregate more advanced metrics
 - [ ] Map out location
 - [ ] Add additional data if possible
+- [ ] Load [game-log data](https://www.retrosheet.org/gamelogs/)
+- [ ] Load [player / manager/ umpire data](https://www.retrosheet.org/retroID.htm)
 
 ## Validating Stats - Spot Checks
 
