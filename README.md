@@ -92,3 +92,19 @@ rs.batch_parse(yearFrom=1921, yearTo=2017, batchsize=10) #10 files at a time
 - [ ] Aggregate more advanced metrics
 - [ ] Map out location
 - [ ] Add additional data if possible
+
+## Validating Stats - Spot Checks
+
+  - Josh Donaldson (player_id = donaj001)
+
+| Source | R | H | HR | SB |
+|-|:-:|:-:|:-:|:-:|
+| Official | 526 | 860 | 174 | 32 |
+| ThisPackage | 521  | 853 | 173 | 32 |
+
+  - Nelson Cruz (SEA Mariners)
+
+| Source | R | H | HR | SB |
+|-|:-:|:-:|:-:|:-:|
+| Official | 768 | 1447 | 317 | 75 |
+| ThisPackage | 761  | 1427 | 317 | 75 |
