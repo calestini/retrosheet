@@ -7,7 +7,7 @@ NEXT_BASE  = {'B':'1','1':'2','2':'3','3':'H'}
 def move_base(bases_dict, bfrom, bto):
     if bto=='H':
         bases_dict[bto].append(bases_dict[bfrom])
-        bases_dict[bfrom] = None
+        bases_dict[bfrom] = None if bfrom != bto else bases_dict[bfrom]
         return bases_dict
     bases_dict[bto] = bases_dict[bfrom]
     bases_dict[bfrom] = None
@@ -37,13 +37,18 @@ def out_in_advance(play_dict, bto=None, bfrom=None):
     - bfrom: base coming from, previous base
     """
     bto = '1' if not bto and not bfrom else bto
-    if bto:
+    if bfrom:
+        play_dict[bfrom] = 0
+        play_dict['out'] += 1
+        return play_dict
+    elif bto:
         play_dict[PREVIOUS_BASE[bto]] = 0
         play_dict['out'] += 1
         return play_dict
-    play_dict[bfrom] = 0
-    play_dict['out'] += 1
-    return play_dict
+    #play_dict[bfrom] = 0
+    #play_dict['out'] += 1
+
+    #return play_dict
 
 
 def advance_base(play_dict, bto=None, bfrom=None):
@@ -53,7 +58,7 @@ def advance_base(play_dict, bto=None, bfrom=None):
     - bfrom: base coming from, previous base
     """
     bto = '1' if not bto and not bfrom else bto
-    if bto == 'H' or bfrom == '3':
+    if bto == 'H':
         play_dict['run'] += 1
     if bto and not bfrom:
         play_dict.update(dict(zip([PREVIOUS_BASE[bto],bto],(0,1))))
@@ -77,6 +82,34 @@ def progress(count, total, status=''):
     sys.stdout.flush()
     if count  == total:
         print ('')
+
+def game_state(pre, post):
+    """
+    Expected format of pre/post: {'B': 1,'1': 0,'2': 0,'3': 0,'H': 0, 'out': 0,'run': 0}
+    """
+    pre_list = [int(pre['1']),int(pre['2']),int(pre['3']),int(pre['out'])]
+    post_list = [int(post['1']),int(post['2']),int(post['3']),int(post['out'])]
+
+    #first, second, third, out
+    states = [
+        [0,0,0,0],[1,0,0,0],[0,1,0,0],[0,0,1,0],[1,1,0,0],[1,0,1,0],[0,1,1,0],[1,1,1,0],
+        [0,0,0,1],[1,0,0,1],[0,1,0,1],[0,0,1,1],[1,1,0,1],[1,0,1,1],[0,1,1,1],[1,1,1,1],
+        [0,0,0,2],[1,0,0,2],[0,1,0,2],[0,0,1,2],[1,1,0,2],[1,0,1,2],[0,1,1,2],[1,1,1,2],
+        [0,0,0,3] #25th state
+    ]
+
+    for loop, item in enumerate(states):
+        if post['out'] == 3:
+            post_state = 25
+
+        if pre_list == item:
+            pre_state = loop + 1
+
+        if post_list == item:
+            post_state = loop + 1
+
+    return pre_state, post_state
+
 
 
 def position_name(position_number):

@@ -126,6 +126,8 @@ class event(object):
                             was_out_loop =desc_loop
 
                     if was_out:#re.findall('^[1-9U]+$', self.ad[loop][0]):
+                        #print ('was out')
+                        #print (bfrom, bto)
                         self.advances = out_in_advance(self.advances, bfrom=bfrom, bto=bto)
                         self.ad_out +=1
 
@@ -155,6 +157,7 @@ class event(object):
                                 error_loop = describer_loop
 
                         if error:
+                            self.move_on_error.append(bto)
                             self.advances = advance_base(self.advances, bfrom=bfrom, bto=bto)
                             self.base = move_base( self.base, bfrom=bfrom, bto=bto)
 
@@ -352,6 +355,443 @@ class event(object):
             else:
                 self.log.debug('Explicit move not found: {0}'.format(move))
 
+    """"""
+    def _play_null(self):
+        self.main_play =  out_in_advance(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play#at bat is out
+        self.base = leave_base(self.base, bfrom='B') if not self._is_explicit() else self.base
+
+    def _play_flyout(self):
+        if 'FO' not in mpm:
+            self.main_play =  out_in_advance(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play#at bat is out
+            self.base = leave_base(self.base, bfrom='B') if not self._is_explicit() else self.base
+
+        if 'FO' in mpm and not re.findall('B', mp):
+            self.main_play = advance_base(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play #B-1 except if explicily moving on advances
+            self.base = move_base(self.base, bfrom='B', bto='1')
+
+        PO = mp[-1]
+        As = mp[:-1]
+        if As:
+            for a in As: self.stats['fielding'].append(['A',a])
+
+        self.stats['batting'].append(['SF',''])  if 'SF' in mpm else None
+        self.stats['batting'].append(['SH',''])  if 'SH' in mpm else None
+        self.stats['batting'].append(['GDP',''])  if 'GDP' in mpm else None
+
+        passes = re.sub('(?:\([^\)]+\))','',mp)
+        self.modifiers['passes'].append(passes)
+
+    def _play_pass_outs(self):
+        for base_out in re.findall('(?:\([B123]\))', mp):
+            self.main_play = out_in_advance(self.main_play, bfrom=base_out[1]) #excluding at bat
+            self.base = leave_base(self.base, bfrom=base_out[1])
+
+        if 'FO' in mpm and not re.findall('B', mp):
+            self.main_play = advance_base(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play #B-1 except if explicily moving on advances
+            self.base = move_base(self.base, bfrom='B', bto='1')
+
+
+        #Testing for double play
+        double_play = False
+        triple_play = False
+
+        if 'BGDP' in mpm or 'BPDP' in mpm or 'DP' in mpm or 'FDP'in mpm or 'GDP' in mpm or 'LDP' in mpm:
+            double_play = True
+
+        if 'BGTP' in mpm or 'BPTP' in mpm or 'TP' in mpm or 'FTP' in mpm or 'GTP' in mpm or 'LTP' in mpm:
+            triple_play = True
+
+
+        if double_play and self.main_play['out'] + self.ad_out < 2:
+            if 'FO' not in mpm:
+                self.main_play =  out_in_advance(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play#at bat is out
+                self.base = leave_base(self.base, bfrom='B') if not self._is_explicit() else self.base
+            else:
+                self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base
+
+        if triple_play and self.main_play['out'] + self.ad_out < 3:
+            if 'FO' not in mpm:
+                self.main_play =  out_in_advance(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play#at bat is out
+                self.base = leave_base(self.base, bfrom='B') if not self._is_explicit() else self.base
+            else:
+                self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base
+
+        ###########################   stats   ##############################
+        fielder1 = re.findall('^[1-9]$', mp) #flyball, not always present
+        fielders2 = re.findall('[1-9]\(', mp)#$$()$ play, with explicit outs
+        fielders2 = [x.replace('(','') for x in fielders2] if fielders2 else []
+        fielders3 = re.findall('^[1-9][1-9]+$', mp) #when its a sequence and out
+        fielders3 = [fielders3[0][-1]] if fielders3 else []
+        fielders4 = [mp[-1]] if re.findall('[1-9]$', mp) and 'GDP' in mpm  else [] #it was a Ground into Double Play
+
+        POs = fielder1 + fielders2 + fielders3 + fielders4
+
+        double_play = False
+        triple_play = False
+
+        if 'BGDP' in mpm or 'BPDP' in mpm or 'DP' in mpm or 'FDP'in mpm or 'GDP' in mpm or 'LDP' in mpm:
+            double_play = True
+
+        if 'BGTP' in mpm or 'BPTP' in mpm or 'TP' in mpm or 'FTP' in mpm or 'GTP' in mpm or 'LTP' in mpm:
+            triple_play = True
+
+        for po in POs:
+            self.stats['fielding'].append(['PO',po[0]])
+            self.stats['fielding'].append(['DP',po[0]]) if double_play else None
+            self.stats['fielding'].append(['TP',po[0]]) if triple_play else None
+
+        all_fielders_touched = re.sub(r'\([^)]*\)', '', mp)
+        for fielder in all_fielders_touched:
+            if fielder not in POs:
+                self.stats['fielding'].append(['A',fielder])
+
+
+        self.stats['batting'].append(['SF',''])  if 'SF' in mpm else None
+        self.stats['batting'].append(['SH',''])  if 'SH' in mpm else None
+        self.stats['batting'].append(['GDP',''])  if 'GDP' in mpm else None
+
+        passes = re.sub('(?:\([^\)]+\))','',mp)
+        self.modifiers['passes'].append(passes)
+
+    def _play_error_on_out(self):
+        self.main_play = advance_base(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play #B-1 except if explicily moving on advances
+        self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
+
+        ###########################   stats   ##############################
+        error_fielder = re.findall('E[1-9]$', mp)[0]
+        self.stats['fielding'].append(['E',error_fielder[1]])
+
+    def _play_cs(self):
+        for cs in mp.split(';'):
+            bto = cs[2]
+            bfrom = PREVIOUS_BASE[cs[2]]
+            self.main_play = out_in_advance(self.main_play, bto=cs[2])
+            self.base = leave_base(self.base, bfrom=bfrom) if not self._is_explicit() else self.base
+
+            ###########################   stats   ##############################
+            self.stats['running'].append(['CS',bfrom, bto])
+
+            PO = re.findall('[1-9]\)', cs)
+            if PO:
+                PO = PO[0].replace(')','')
+                self.stats['fielding'].append(['PO',PO[0]])
+
+            As = re.findall('(?:\([^\(]+\))', cs)
+            if As:
+                As = As[0].replace('(','').replace(')','')
+                for a in As:
+                    if a not in PO:
+                        self.stats['fielding'].append(['A',a])
+
+            passes = re.sub('CS[23H]','', cs).replace('(','').replace(')','').replace('E','')
+            if passes:
+                self.modifiers['passes'].append(passes)
+            ###########################   end   ################################
+
+    def _play_cs_error(self):
+        #the advance could also be explicit given the error, for more than one base.
+        for cs in mp.split(';'):
+            bto = cs[2]
+            bfrom = PREVIOUS_BASE[cs[2]]
+            self.main_play = advance_base(self.main_play, bto=bto) if not self._is_explicit(bfrom=bfrom) else self.main_play
+            self.base = move_base(self.base, bfrom=bfrom, bto=bto) if not self._is_explicit(bfrom=bfrom) else self.base #B-1 except if explicily moving on advances
+
+            ###########################   stats   ##############################
+            self.stats['running'].append(['CS(E)',bfrom, bto]) #caught stealing w error
+
+            As = re.findall('^(?:\([1-9]+E)+', cs)
+            if As:
+                As = As[0].replace('E','').replace('(','')
+                for a in As:
+                    self.stats['fielding'].append(['A',a])
+
+
+            error_fielder = re.findall('E[1-9]', cs)[0]
+            self.stats['fielding'].append(['E',error_fielder[1]])
+
+            passes = re.sub('CS[23H]','', cs).replace('(','').replace(')','').replace('E','')
+            if passes:
+                self.modifiers['passes'].append(passes)
+            ###########################   end   ################################
+
+    def _play_balk(self):
+        self.stats['pitching'].append(['BK','1'])
+
+    def _play_double(self):
+        self.main_play = advance_base(self.main_play, bto='2',bfrom='B') if not self._is_explicit() else self.main_play
+        self.base = move_base(self.base, bfrom='B', bto='2') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
+        ###########################   stats   ##############################
+        self.stats['batting'].append(['2B',''])
+        self.stats['batting'].append(['H','']) #hit
+        self.stats['pitching'].append(['H','1'])
+
+        passes = re.findall('[0-9]', mp)
+        if passes:
+            self.modifiers['passes'].append(passes[0])
+        ###########################   end   ################################
+
+    def _play_grd(self): #ground rule double
+        self.main_play = advance_base(self.main_play, bto='2',bfrom='B')  if not self._is_explicit() else self.main_play
+        self.base = move_base(self.base, bfrom='B', bto='2') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
+        ###########################   stats   ##############################
+        self.stats['batting'].append(['DGR',''])
+        self.stats['batting'].append(['H','']) #hit
+        self.stats['pitching'].append(['H','1'])
+
+        passes = re.findall('[0-9]+', mp)
+        if passes:
+            self.modifiers['passes'].append(passes[0])
+
+    def _play_di(self): #defensive indiference
+        ###########################   stats   ##############################
+        for explicit_move in self.em:
+            bto = explicit_move[0][2]
+            bfrom = explicit_move[0][0]
+            self.stats['running'].append(['DI',bfrom, bto])
+        ###########################   end   ################################
+
+    def _play_error2(self):
+        self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
+        self.base = move_base(self.base, bfrom='B',bto='1') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
+        ###########################   stats   ##############################
+        error_fielder = re.findall('E[1-9]$', mp)[0]
+        if 'TH' in mpm: #throwing error
+            self.stats['fielding'].append(['E(TH)',error_fielder[1]])
+        else:
+            self.stats['fielding'].append(['E',error_fielder[1]])
+
+        passes = re.findall('[0-9]+', mp)
+        if passes:
+            self.modifiers['passes'].append(passes[0])
+        ###########################   end   ################################
+
+    def _play_fc(self): #fielder's choice
+        self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
+        self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
+        ###########################   stats   ##############################
+        self.stats['batting'].append(['FC',''])
+        if len(mp) > 2:
+            self.stats['fielding'].append(['FC',mp[2]])
+            self.modifiers['passes'].append(mp[2])
+        ###########################   end   ################################
+
+    def _play_fle(self): # error on foul fly play (error given to the play but no advances)
+        ###########################   stats   ##############################
+        self.stats['fielding'].append(['FLE',mp[3]])
+        ###########################   end   ################################
+
+    def _play_home_run(self):
+        self.main_play = advance_base(self.main_play, bto='H',bfrom='B')  if not self._is_explicit() else self.main_play
+        self.base = move_base(self.base, bfrom='B', bto='H') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
+        ###########################   stats   ##############################
+        self.stats['running'].append(['R','B', 'H'])
+
+        self.stats['batting'].append(['HR','']) #home run
+        self.stats['pitching'].append(['HR','1'])
+
+        self.stats['batting'].append(['H','']) #hit
+        self.stats['pitching'].append(['H','1'])
+
+        self.stats['batting'].append(['R','']) #run
+
+        if 'IPHR' in mpm:
+            self.stats['batting'].append(['IPHR',''])
+        ###########################   end   ################################
+
+    def _play_hb(self):
+        self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
+        self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
+        ###########################   stats   ##############################
+        self.stats['batting'].append(['HBP','']) #hit by pitch
+        ###########################   end   ################################
+
+    def _play_walk(self):
+        self.main_play = advance_base(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play
+        self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
+        ###########################   stats   ##############################
+        self.stats['batting'].append(['BB','']) #base on balls
+        self.stats['pitching'].append(['BB','1']) #base on balls
+        ###########################   end   ################################
+
+    def _play_iwalk(self):
+        self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
+        self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
+        ###########################   stats   ##############################
+        self.stats['batting'].append(['IBB','']) #base on balls
+        self.stats['pitching'].append(['IBB','1']) #base on balls
+        ###########################   end   ################################
+
+    def _play_strikeout(self):
+        self.main_play = out_in_advance(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play
+        self.base = leave_base(self.base, bfrom='B') if not self._is_explicit() else self.base
+
+        ###########################   stats   ##############################
+        self.stats['batting'].append(['K','']) #strikeout
+        self.stats['fielding'].append(['PO','2']) #strikeout
+        self.stats['pitching'].append(['K','1']) #strikeout
+        self.stats['batting'].append(['SF',''])  if 'SF' in mpm else None
+        self.stats['batting'].append(['SH',''])  if 'SH' in mpm else None
+        ###########################   end   ################################
+
+    def _play_pb(self):
+        ###########################   stats   ##############################
+        self.stats['fielding'].append(['PB','2'])
+        ###########################   end   ################################
+
+    def _play_po(self):
+        bfrom = mp[2]
+        bto = NEXT_BASE[mp[2]]
+
+        self.main_play = out_in_advance(self.main_play, bfrom=bfrom)  if not self._is_explicit(bfrom) else self.main_play
+        self.base = leave_base(self.base, bfrom=bfrom) if not self._is_explicit() else self.base
+
+        ###########################   stats   ##############################
+        PO = re.findall('[1-9]\)', mp)
+        if PO:
+            PO = PO[0].replace(')','')
+            self.stats['fielding'].append(['PO',PO[0]])
+
+        As = re.findall('(?:\([^\(]+\))', mp)
+        if As:
+            As = As[0].replace('(','').replace(')','')
+            for a in As:
+                if a not in PO:
+                    self.stats['fielding'].append(['A',a])
+
+        passes = re.sub('PO[123]\(','', mp).replace(')','').replace('E','')
+        self.modifiers['passes'].append(passes)
+
+
+        self.stats['running'].append(['PO',bfrom, bfrom]) #player never moved base
+        ###########################   end   ################################
+
+    def _play_po_error(self):
+        ###########################   stats   ##############################
+        bfrom = mp[2]
+        bto = NEXT_BASE[mp[2]]
+        self.stats['running'].append(['PO(E)',bfrom, bto])
+        As = re.findall('^(?:\([1-9]+E)+', mp) #assists to other players
+        if As:
+            As = As[0].replace('E','').replace('(','')
+            for a in As:
+                self.stats['fielding'].append(['A',a])
+
+        passes = re.sub('PO[123]\(','', mp).replace(')','').replace('E','')
+        self.modifiers['passes'].append(passes)
+
+        error_fielder = re.findall('E[1-9]', mp)[0]
+        self.stats['fielding'].append(['E',error_fielder[1]])
+        ###########################   end   ################################
+
+    def _play_pocs(self):
+        for split in mp.split(';'):
+            if split[0:2] == 'CS':
+                bto = split[2]
+                bfrom = PREVIOUS_BASE[split[2]]
+                self.main_play = out_in_advance(self.main_play, bto=bto) if not self._is_explicit(bfrom) else self.main_play
+                self.base = leave_base(self.base, bfrom=bfrom) if not self._is_explicit() else self.base
+                self.stats['running'].append(['CS',bfrom, bto])
+            else:
+                bto = split[4]
+                bfrom = PREVIOUS_BASE[split[4]]
+                out_in_advance( self.main_play, bto=bto) if not self._is_explicit(bfrom) else self.main_play  #there are CS events together with POCS
+                self.base = leave_base(self.base, bfrom=bfrom) if not self._is_explicit() else self.base
+                self.stats['running'].append(['CS',bfrom, bto])
+
+            ###########################   stats   ##############################
+
+            PO = re.findall('[1-9]\)', split)
+            if PO:
+                PO = PO[0].replace(')','')
+                self.stats['fielding'].append(['PO',PO[0]])
+
+            As = re.findall('(?:\([^\(]+\))', split)
+            if As:
+                As = As[0].replace('(','').replace(')','')
+                for a in As:
+                    if a not in PO:
+                        self.stats['fielding'].append(['A',a])
+
+            passes = re.sub('POCS[123]\(','', mp).replace(')','').replace('E','')
+            self.modifiers['passes'].append(passes)
+            ###########################   end   ################################
+
+    def _play_pocs_error(self):
+        ###########################   stats   ##############################
+        bto = mp[4]
+        bfrom = PREVIOUS_BASE[mp[4]]
+        self.stats['running'].append(['CS(E)',bfrom, bto])
+
+        As = re.findall('^(?:\([1-9]+E)+', mp) #assists to other players
+        if As:
+            As = As[0].replace('E','').replace('(','')
+            for a in As:
+                self.stats['fielding'].append(['A',a])
+
+        error_fielder = re.findall('E[1-9]', mp)[0]
+        self.stats['fielding'].append(['E',error_fielder[1]])
+
+        passes = re.sub('POCS[123]\(','', mp).replace(')','').replace('E','')
+        self.modifiers['passes'].append(passes)
+        ###########################   end   ################################
+
+    def _play_single(self):
+        self.main_play = advance_base(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play
+        self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
+        ###########################   stats   ##############################
+        self.stats['batting'].append(['1B','']) #single
+        self.stats['batting'].append(['H','']) #hit
+        self.stats['pitching'].append(['H','1'])
+
+        passes = re.findall('[0-9]', mp)
+        if passes:
+            self.modifiers['passes'].append(passes[0])
+        ###########################   end   ################################
+
+    def _play_stolen_base(self):
+        for sb in mp.split(';'):
+            if sb[0:2] == 'SB':
+                bto = sb[2]
+                bfrom = PREVIOUS_BASE[sb[2]]
+                self.main_play = advance_base(self.main_play, bto=sb[2]) if not self._is_explicit(bfrom) else self.main_play
+                self.base = move_base(self.base, bfrom=bfrom, bto=bto) if not self._is_explicit(bfrom) else self.base #B-1 except if explicily moving on advances
+                ###########################   stats   ##############################
+                self.stats['running'].append(['SB',bfrom, bto])
+                self.stats['running'].append(['R',bfrom, bto]) if sb[2] == 'H' else None
+                ###########################   end   ################################
+
+    def _play_triple(self):
+        self.main_play = advance_base(self.main_play, bfrom='B', bto='3')  if not self._is_explicit() else self.main_play
+        self.base = move_base(self.base, bfrom='B', bto='3') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
+        ###########################   stats   ##############################
+        self.stats['batting'].append(['3B',''])
+        self.stats['batting'].append(['H','']) #hit
+
+        passes = re.findall('[0-9]', mp)
+        if passes:
+            self.modifiers['passes'].append(passes[0])
+        ###########################   end   ################################
+
+    def _play_wp(self):
+        ###########################   stats   ##############################
+        self.stats['pitching'].append(['WP','1'])
+        ###########################   end   ################################
+
+    def _play_ci(self):
+        if 'E1' in mpm :
+            ###########################   stats   ##############################
+            self.stats['fielding'].append(['E','1'])
+            ###########################   end   ################################
+        elif 'E2' in mpm:
+            ###########################   stats   ##############################
+            self.stats['fielding'].append(['CI','2'])
+            ###########################   end   ################################
+        elif 'E3' in mpm:
+            ###########################   stats   ##############################
+            self.stats['fielding'].append(['E','3'])
+            ###########################   end   ################################
+
+
 
     def _main_play(self, mp, mpm):
         """Parse main play"""
@@ -361,11 +801,16 @@ class event(object):
             self.base = leave_base(self.base, bfrom='B') if not self._is_explicit() else self.base
 
         elif re.findall('^[1-9]', mp) and not re.findall('\(', mp) and not re.findall('E', mp):
+
             #single out, or without multiple plays
 
             if 'FO' not in mpm:
                 self.main_play =  out_in_advance(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play#at bat is out
                 self.base = leave_base(self.base, bfrom='B') if not self._is_explicit() else self.base
+
+            if 'FO' in mpm and not re.findall('B', mp):
+                self.main_play = advance_base(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play #B-1 except if explicily moving on advances
+                self.base = move_base(self.base, bfrom='B', bto='1')
 
             PO = mp[-1]
             As = mp[:-1]
@@ -383,12 +828,18 @@ class event(object):
         elif re.findall('^[1-9](?:[1-9]*(?:\([B123]\))?)*\+?\-?$', mp): # implicit B out or not
 
             for base_out in re.findall('(?:\([B123]\))', mp):
-                self.main_play = out_in_advance(self.main_play, bfrom=base_out[1]) #excluding at bat
-                self.base = leave_base(self.base, bfrom=base_out[1])
+                expression = '[\-]{0}'.format(base_out[1])
+                moves = self.str.split('.')[len(self.str.split('.'))-1]
+                if not re.findall(expression, self.str.split('.')[len(self.str.split('.'))-1]) and base_out[1] not in self.move_on_error: #a player moved to that base in advaances
+                    self.main_play = out_in_advance(self.main_play, bfrom=base_out[1]) #excluding at bat
+                    self.base = leave_base(self.base, bfrom=base_out[1])
+                else:
+                    self.main_play['out'] += 1
+                    #self.base = leave_base(self.base, bfrom=base_out[1])
 
             if 'FO' in mpm and not re.findall('B', mp):
                 self.main_play = advance_base(self.main_play, bfrom='B') if not self._is_explicit() else self.main_play #B-1 except if explicily moving on advances
-                self.base = move_base(self.base, bfrom='B', bto='1')
+                self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base
 
 
             #Testing for double play
@@ -401,6 +852,15 @@ class event(object):
             if 'BGTP' in mpm or 'BPTP' in mpm or 'TP' in mpm or 'FTP' in mpm or 'GTP' in mpm or 'LTP' in mpm:
                 triple_play = True
 
+            if double_play and not re.findall('B', mp) and (self.main_play['out'] + self.ad_out) == 2:
+            #   E.G: 5(2)4(1)/GDP --> b advanced to first
+                self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
+                self.base = move_base(self.base, bfrom='B',bto='1') if not self._is_explicit() else self.base
+
+            if not double_play and not re.findall('B', mp):
+            #   E.G.: 16(1)/F
+                self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
+                self.base = move_base(self.base, bfrom='B',bto='1') if not self._is_explicit() else self.base
 
             if double_play and self.main_play['out'] + self.ad_out < 2:
                 if 'FO' not in mpm:
@@ -408,6 +868,7 @@ class event(object):
                     self.base = leave_base(self.base, bfrom='B') if not self._is_explicit() else self.base
                 else:
                     self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base
+
 
             if triple_play and self.main_play['out'] + self.ad_out < 3:
                 if 'FO' not in mpm:
@@ -467,8 +928,14 @@ class event(object):
             for cs in mp.split(';'):
                 bto = cs[2]
                 bfrom = PREVIOUS_BASE[cs[2]]
-                self.main_play = out_in_advance(self.main_play, bto=cs[2])
-                self.base = leave_base(self.base, bfrom=bfrom) if not self._is_explicit() else self.base
+
+                if re.findall('[\-X]{0}'.format(bfrom), self.str.split('.')[len(self.str.split('.'))-1]):
+
+                    self.main_play['out'] += 1
+                else:
+
+                    self.main_play = out_in_advance(self.main_play, bto=cs[2])
+                    self.base = leave_base(self.base, bfrom=bfrom) if not self._is_explicit(bfrom) else self.base
 
                 ###########################   stats   ##############################
                 self.stats['running'].append(['CS',bfrom, bto])
@@ -495,8 +962,21 @@ class event(object):
             for cs in mp.split(';'):
                 bto = cs[2]
                 bfrom = PREVIOUS_BASE[cs[2]]
-                self.main_play = advance_base(self.main_play, bto=bto) if not self._is_explicit(bfrom=bfrom) else self.main_play
-                self.base = move_base(self.base, bfrom=bfrom, bto=bto) if not self._is_explicit(bfrom=bfrom) else self.base #B-1 except if explicily moving on advances
+
+                if not self._is_explicit(bfrom):
+                    if re.findall('[\-X]{0}'.format(bfrom), self.str.split('.')[len(self.str.split('.'))-1]):
+                        self.main_play[bto] = 1
+                        if bto == 'H' or bfrom == '3':
+                            self.main_play['run'] += 1
+
+                        if bto=='H':
+                            self.base[bto].append(self.base[bfrom])
+                        else:
+                            self.base[bto] = self.base[bfrom]
+
+                    else:
+                        self.main_play = advance_base(self.main_play, bto=bto)
+                        self.base = move_base(self.base, bfrom=bfrom, bto=bto)
 
                 ###########################   stats   ##############################
                 self.stats['running'].append(['CS(E)',bfrom, bto]) #caught stealing w error
@@ -559,8 +1039,10 @@ class event(object):
             ###########################   end   ################################
 
         elif re.findall('^E[1-9]+\??$', mp): ## error allowing batter to get on base (B-1 implicit or not)
-            self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
-            self.base = move_base(self.base, bfrom='B',bto='1') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
+
+            if not re.findall('K', self.mp[0]): #it is an error but not on second event following strike
+                self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
+                self.base = move_base(self.base, bfrom='B',bto='1') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
             ###########################   stats   ##############################
             error_fielder = re.findall('E[1-9]$', mp)[0]
             if 'TH' in mpm: #throwing error
@@ -650,8 +1132,9 @@ class event(object):
             pass
 
         elif re.findall('^PB$', mp): #passed ball
-            self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
-            self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
+            #will keep any advancement to explicit for now. Othersie uncomment below
+            #self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
+            #self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
             ###########################   stats   ##############################
             self.stats['fielding'].append(['PB','2'])
             ###########################   end   ################################
@@ -660,8 +1143,14 @@ class event(object):
             bfrom = mp[2]
             bto = NEXT_BASE[mp[2]]
 
-            self.main_play = out_in_advance(self.main_play, bfrom=bfrom)  if not self._is_explicit(bfrom) else self.main_play
-            self.base = leave_base(self.base, bfrom=bfrom) if not self._is_explicit() else self.base
+            if re.findall('[\-X]{0}'.format(bfrom), self.str.split('.')[len(self.str.split('.'))-1]):
+                self.main_play['out'] += 1
+            else:
+                self.main_play = out_in_advance(self.main_play, bto=bto)  if not self._is_explicit(bfrom) else self.main_play
+                self.base = leave_base(self.base, bfrom=bfrom) if not self._is_explicit(bfrom) else self.base
+
+            #self.main_play = out_in_advance(self.main_play, bfrom=bfrom)  if not self._is_explicit(bfrom) else self.main_play
+            #self.base = leave_base(self.base, bfrom=bfrom) if not self._is_explicit(bfrom) else self.base
 
             ###########################   stats   ##############################
             PO = re.findall('[1-9]\)', mp)
@@ -708,14 +1197,31 @@ class event(object):
                 if split[0:2] == 'CS':
                     bto = split[2]
                     bfrom = PREVIOUS_BASE[split[2]]
-                    self.main_play = out_in_advance(self.main_play, bto=bto) if not self._is_explicit(bfrom) else self.main_play
-                    self.base = leave_base(self.base, bfrom=bfrom) if not self._is_explicit() else self.base
+
+                    if re.findall('[\-]{0}'.format(bfrom), self.str.split('.')[len(self.str.split('.'))-1]) or bfrom in self.move_on_error:
+                        self.main_play['out'] += 1
+                    else:
+                        self.main_play = out_in_advance(self.main_play, bto=bto)  if not self._is_explicit(bfrom) else self.main_play
+                        self.base = leave_base(self.base, bfrom=bfrom) if not self._is_explicit(bfrom) else self.base
+
+                    #self.main_play = out_in_advance(self.main_play, bto=bto) if not self._is_explicit(bfrom) else self.main_play
+                    #self.base = leave_base(self.base, bfrom=bfrom) if not self._is_explicit(bfrom) else self.base
+
+
                     self.stats['running'].append(['CS',bfrom, bto])
                 else:
                     bto = split[4]
                     bfrom = PREVIOUS_BASE[split[4]]
-                    out_in_advance( self.main_play, bto=bto) if not self._is_explicit(bfrom) else self.main_play  #there are CS events together with POCS
-                    self.base = leave_base(self.base, bfrom=bfrom) if not self._is_explicit() else self.base
+
+                    if re.findall('[\-]{0}'.format(bfrom), self.str.split('.')[len(self.str.split('.'))-1]) or bfrom in self.move_on_error:
+                        self.main_play['out'] += 1
+                    else:
+                        self.main_play = out_in_advance(self.main_play, bto=bto)  if not self._is_explicit(bfrom) else self.main_play
+                        self.base = leave_base(self.base, bfrom=bfrom) if not self._is_explicit(bfrom) else self.base
+
+                    #out_in_advance( self.main_play, bto=bto) if not self._is_explicit(bfrom) else self.main_play  #there are CS events together with POCS
+                    #self.base = leave_base(self.base, bfrom=bfrom) if not self._is_explicit(bfrom) else self.base
+
                     self.stats['running'].append(['CS',bfrom, bto])
 
                 ###########################   stats   ##############################
@@ -736,8 +1242,30 @@ class event(object):
                 self.modifiers['passes'].append(passes)
                 ###########################   end   ################################
 
-
         elif re.findall('^POCS[23H](?:\([1-9]*E[1-9]+)',mp):#POCS errors
+
+            for split in mp.split(';'):
+                bto = split[4]
+                bfrom = PREVIOUS_BASE[split[4]]
+
+                if not self._is_explicit(bfrom):
+                    if re.findall('[\-]{0}'.format(bfrom), self.str.split('.')[len(self.str.split('.'))-1]) or bfrom in self.move_on_error:
+                        self.main_play[bto] = 1
+                        if bto == 'H' or bfrom == '3':
+                            self.main_play['run'] += 1
+
+                        if bto=='H':
+                            self.base[bto].append(self.base[bfrom])
+                        else:
+                            self.base[bto] = self.base[bfrom]
+
+                    else:
+                        self.main_play = advance_base(self.main_play, bto=bto)
+                        self.base = move_base(self.base, bfrom=bfrom, bto=bto)
+
+
+                #self.base = move_base(self.base, bfrom=bfrom, bto=bto) if not self._is_explicit(bfrom) else self.base
+                #self.advances = advance_base(self.advances, bfrom=bfrom, bto=bto) if not self._is_explicit(bfrom) else self.advances
 
             ###########################   stats   ##############################
             bto = mp[4]
@@ -771,16 +1299,39 @@ class event(object):
             ###########################   end   ################################
 
         elif re.findall('^SB[23H]',mp): #stolen base
+            sbs = []
             for sb in mp.split(';'):
                 if sb[0:2] == 'SB':
-                    bto = sb[2]
-                    bfrom = PREVIOUS_BASE[sb[2]]
-                    self.main_play = advance_base(self.main_play, bto=sb[2]) if not self._is_explicit(bfrom) else self.main_play
-                    self.base = move_base(self.base, bfrom=bfrom, bto=bto) if not self._is_explicit(bfrom) else self.base #B-1 except if explicily moving on advances
-                    ###########################   stats   ##############################
-                    self.stats['running'].append(['SB',bfrom, bto])
-                    self.stats['running'].append(['R',bfrom, bto]) if sb[2] == 'H' else None
-                    ###########################   end   ################################
+                    sbs.append(sb)
+
+            sbs.sort(key = lambda item: (['1','2','3','H'].index(item[2]), item), reverse=True)
+
+            for sb in sbs:
+                bto = sb[2]
+                bfrom = PREVIOUS_BASE[sb[2]]
+
+                if not self._is_explicit(bfrom):
+                    #check if explicit moved, so wont zero out the base left
+                    if re.findall('[\-]{0}'.format(bfrom), self.str.split('.')[len(self.str.split('.'))-1]) or bfrom in self.move_on_error:
+                        self.main_play[bto] = 1
+                        if bto == 'H' or bfrom == '3':
+                            self.main_play['run'] += 1
+
+                        if bto=='H':
+                            self.base[bto].append(self.base[bfrom])
+                        else:
+                            self.base[bto] = self.base[bfrom]
+
+
+                    else:
+                        self.main_play = advance_base(self.main_play, bto=sb[2])
+                        self.base = move_base(self.base, bfrom=bfrom, bto=bto)
+
+
+                ###########################   stats   ##############################
+                self.stats['running'].append(['SB',bfrom, bto])
+                self.stats['running'].append(['R',bfrom, bto]) if sb[2] == 'H' else None
+                ###########################   end   ################################
 
         elif re.findall('^T[0-9]*\??\+?$',mp): #triple
             self.main_play = advance_base(self.main_play, bfrom='B', bto='3')  if not self._is_explicit() else self.main_play
@@ -795,8 +1346,10 @@ class event(object):
             ###########################   end   ################################
 
         elif re.findall('^WP', mp): ## wild pitch - base runner advances
-            self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
-            self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
+            #the advance should only be explicit. If not, uncomment below
+            #self.main_play = advance_base(self.main_play, bfrom='B')  if not self._is_explicit() else self.main_play
+            #self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base #B-1 except if explicily moving on advances
+
             ###########################   stats   ##############################
             self.stats['pitching'].append(['WP','1'])
             ###########################   end   ################################
@@ -804,14 +1357,23 @@ class event(object):
         elif re.findall('^C$', mp): #catcher interference or pitcher or first baseman
             if 'E1' in mpm :
                 ###########################   stats   ##############################
+                self.main_play = advance_base(self.main_play, bfrom='B', bto='1')  if not self._is_explicit() else self.main_play
+                self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base
+
                 self.stats['fielding'].append(['E','1'])
                 ###########################   end   ################################
             elif 'E2' in mpm:
                 ###########################   stats   ##############################
+                self.main_play = advance_base(self.main_play, bfrom='B', bto='1')  if not self._is_explicit() else self.main_play
+                self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base
+
                 self.stats['fielding'].append(['CI','2'])
                 ###########################   end   ################################
             elif 'E3' in mpm:
                 ###########################   stats   ##############################
+                self.main_play = advance_base(self.main_play, bfrom='B', bto='1')  if not self._is_explicit() else self.main_play
+                self.base = move_base(self.base, bfrom='B', bto='1') if not self._is_explicit() else self.base
+
                 self.stats['fielding'].append(['E','3'])
                 ###########################   end   ################################
 
@@ -866,15 +1428,14 @@ class event(object):
         #print ('\nmpd\t', self.mpd)
 
 
-
-
-
         str_spm = self.str.split('.')[0].split('+',1)[1] if len(self.str.split('.')[0].split('+',1)) > 1 else ''
         self.spm = re.findall('(?<=/)(?:[^/^\+]+)', str_spm)
         #print ('\nspm:\t', self.spm)
 
         #advances:
         self.ea = self.str.split('.')[len(self.str.split('.'))-1].split(';') if len(self.str.split('.'))>1 else []
+        self.ea.sort(key = lambda item: (['B','1','2','3'].index(item[0]), item), reverse=True)
+
         for advance in self.ea: self.em.append(re.findall('[1-3B][\-X][1-3H]', advance))
         for advance in self.ea: self.ad.append(re.findall('(?<=\()(?:[^\)^/]+)', advance))
         for advance in self.ea:
@@ -894,7 +1455,9 @@ class event(object):
 
 
     def final_moves(self):
-        """Combine main play with explicit advances
+        """Combine main play with explicit advances.
+        Also, it needs to check to make sure bases are correct based on previous
+        play (previous_advances)
         """
 
         for key, value in self.main_play.items():
@@ -907,7 +1470,7 @@ class event(object):
     def decipher(self):
         """Parse baseball play
         """
-
+        self.move_on_error = []
         #initialize this play
         self.modifiers = {
             'out': 0,

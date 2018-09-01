@@ -9,7 +9,7 @@ import pandas as pd
 from urllib.request import urlopen
 import os.path
 
-from .helpers import pitch_count, progress
+from .helpers import pitch_count, progress, game_state
 from .version import __version__
 from .event import  event
 
@@ -114,7 +114,16 @@ class parse_game(parse_row):
         self.event.base['B'] = self.row_values[3] #current at bat
         base_before_play = self.event.base.copy()
 
+        pre_event = self.event.advances.copy()
         self.event.decipher()
+        post_event = self.event.advances.copy()
+        this_play_runs = post_event['run'] - pre_event['run']
+        pre_state, post_state = game_state(pre_event, post_event)
+
+        if post_state == 25:
+            states = [25,26,27,28]
+            post_state = states[this_play_runs]
+
 
         pitcher_home_away = '1' if self.row_values[2] == '0' else '0' #remember picher is defense
         pitch_string = self.row_values[3]
@@ -152,7 +161,10 @@ class parse_game(parse_row):
                 'awayteam_score': self.score['0'],
                 'trajectory': self.event.modifiers['trajectory'],
                 'passes':  self.event.modifiers['passes'],
-                'location':  self.event.modifiers['location']
+                'location':  self.event.modifiers['location'],
+                'pre_state': pre_state,
+                'post_state': post_state,
+                'play_runs': this_play_runs,
             })
 
 

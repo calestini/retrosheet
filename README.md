@@ -15,8 +15,10 @@ The motivation behind this project is to enhance python-based baseball analytics
 ## Before you start
 
 If you are looking for a complete solution out of the box, check [Chadwick Bureau](http://chadwick-bureau.com/)
+
 If you are looking for a quick way to check stats, see [Baseball-Reference](https://www.baseball-reference.com)
-If you want a web-scrapping solution, check (pybaseball)[https://github.com/jldbc/pybaseball]
+
+If you want a web-scrapping solution, check [pybaseball](https://github.com/jldbc/pybaseball)
 
 ## Getting Started
 
@@ -98,18 +100,20 @@ rs.batch_parse(yearFrom=1921, yearTo=2017, batchsize=10) #10 files at a time
 - [ ] Load [game-log data](https://www.retrosheet.org/gamelogs/)
 - [ ] Load [player / manager/ umpire data](https://www.retrosheet.org/retroID.htm)
 
-## Validating Stats - Spot Checks
+## Validating Career Stats - Spot Checks
+
+### Batting + Fielding
 
   - Josh Donaldson (player_id = donaj001)
 
 | Source | R | H | HR | SB |
 |-|:-:|:-:|:-:|:-:|
 | Official | 526 | 860 | 174 | 32 |
-| ThisPackage | 521  | 853 | 173 | 32 |
+| ThisPackage | 524  | 853 | 173 | 32 |
 
-  - Nelson Cruz (SEA Mariners)
+  - Nelson Cruz (player_id = cruzn002)
 
 | Source | R | H | HR | SB |
 |-|:-:|:-:|:-:|:-:|
 | Official | 768 | 1447 | 317 | 75 |
-| ThisPackage | 761  | 1427 | 317 | 75 |
+| ThisPackage | 767  | 1427 | 317 | 75 |

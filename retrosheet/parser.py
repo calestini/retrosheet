@@ -16,7 +16,7 @@ class Retrosheet(event, parse_files):
         parse_files.__init__(self)
 
 
-    def batch_parse(self, yearFrom = None, yearTo = None, batchsize=10):
+    def batch_parse(self, yearFrom = None, yearTo = None, batchsize=10, append=True):
         """
         """
         yearTo = yearTo if yearTo else '2017'
@@ -27,6 +27,8 @@ class Retrosheet(event, parse_files):
 
         batches = int((yearTo - yearFrom + 1)/batchsize)+1
 
+
+
         for loop, batch in enumerate(range(batches)):
             start_year = yearFrom if loop == 0 else end_year + 1
 
@@ -34,7 +36,7 @@ class Retrosheet(event, parse_files):
 
             self.get_data(yearFrom=start_year, yearTo=end_year)
             self.to_df()
-            self.save_csv(path_str='', append = True)
+            self.save_csv(path_str='', append = False) if loop == 0 else self.save_csv(path_str='', append = True)
 
             #empty datasets for free-up memory
             self.file = None
