@@ -118,6 +118,7 @@ class parse_game(parse_row):
         self.event.decipher()
         post_event = self.event.advances.copy()
         this_play_runs = post_event['run'] - pre_event['run']
+        this_play_outs = post_event['out'] - pre_event['out']
         pre_state, post_state = game_state(pre_event, post_event)
 
         if post_state == 25:
@@ -165,6 +166,7 @@ class parse_game(parse_row):
                 'pre_state': pre_state,
                 'post_state': post_state,
                 'play_runs': this_play_runs,
+                'play_outs': this_play_outs
             })
 
 
